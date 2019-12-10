@@ -1,0 +1,5 @@
+vv/*
+*.pyc
+*.log
+__pycache__/*
+vvlinux
