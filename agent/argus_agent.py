@@ -61,6 +61,7 @@ NodeIdMap = {} # keep all nodeid existing: key is node_id, value is timestamp (m
 mark_down_flag = False
 
 alarm_proxy_host = '127.0.0.1:9090'
+mysession = requests.Session()
 
 
 def dict_cmp(a, b):
@@ -540,7 +541,8 @@ def do_alarm(alarm_list):
     my_data = json.dumps(alarm_list)
     slog.info("do_alarm: {0}".format(my_data))
     try:
-        res = requests.post(url, headers = my_headers,data = my_data, timeout = 5)
+        #res = requests.post(url, headers = my_headers,data = my_data, timeout = 5)
+        res = mysession.post(url, headers = my_headers,data = my_data, timeout = 5)
         if res.status_code == 200:
             if res.json().get('status') == 0:
                 slog.info("send alarm ok, response: {0}".format(res.text))
