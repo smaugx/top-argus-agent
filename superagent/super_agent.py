@@ -29,11 +29,12 @@ from common.slogging import slog
 alarm_proxy_host = '127.0.0.1:9090'
 mysession = requests.Session()
 mypublicip = '127.0.0.1'
+mycommand_filter = []  # timestamp of command
 mycommand = []
 
 
 def get_command_from_remote():
-    global alarm_proxy_host, mypublicip, mycommand
+    global alarm_proxy_host, mypublicip, mycommand, mycommand_filter
     url = 'http://' + alarm_proxy_host
     url = urljoin(url, '/api/command/')
     my_headers = {
@@ -48,8 +49,12 @@ def get_command_from_remote():
             if res.json().get('status') == 0:
                 slog.info("get remote command ok, response: {0}".format(res.text))
                 config = res.json().get('config')
-                command = res.json().get('command')  #list
-                mycommand.extend(command)
+                command = res.json().get('command')
+                for k,v in command.items():
+                    if k not in mycommand_filter:
+                        mycommand.extend(v)
+                        mycommand_filter.append(k)
+
                 ip = res.json().get('ip')
                 if ip != None and ip.find(':') != -1:
                     mypublicip = ip
