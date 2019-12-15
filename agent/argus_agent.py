@@ -32,7 +32,7 @@ SENDQ = queue.Queue(10000)
 RECVQ = queue.Queue(10000)
 gconfig = {
         'global_sample_rate': 100,  # sample_rate%
-        'alarm_pack_num': 1,   # upload alarm size one time
+        'alarm_pack_num': 2,   # upload alarm size one time
         'grep_broadcast': {
             'start': 'true',
             'sample_rate': 100,
@@ -49,7 +49,7 @@ gconfig = {
             },
         'grep_networksize': {
             'start': 'true',
-            'sample_rate': 100,
+            'sample_rate': 20,
             'alarm_type': 'networksize',
             },
         'grep_xtopchain': {
@@ -62,6 +62,7 @@ mark_down_flag = False
 
 alarm_proxy_host = '127.0.0.1:9090'
 mysession = requests.Session()
+mypublicip = '127.0.0.1'
 
 
 def dict_cmp(a, b):
@@ -85,7 +86,7 @@ def dict_cmp(a, b):
     return True
 
 def update_config_from_remote():
-    global gconfig, alarm_proxy_host
+    global gconfig, alarm_proxy_host, mypublicip
     url = 'http://' + alarm_proxy_host
     url = urljoin(url, '/api/config/')
     my_headers = {
@@ -99,6 +100,9 @@ def update_config_from_remote():
             if res.json().get('status') == 0:
                 slog.info("get remote config ok, response: {0}".format(res.text))
                 config = res.json().get('config')
+                ip = res.json().get('ip')
+                if ip != None and ip.find(':') != -1:
+                    mypublicip = ip
     except Exception as e:
         slog.info("exception: {0}".format(e))
         return False
@@ -139,7 +143,7 @@ def print_queue():
 def put_sendq(alarm_payload):
     global SENDQ
     try:
-        SENDQ.put(alarm_payload, block=True, timeout =2)
+        SENDQ.put(json.dumps(alarm_payload), block=True, timeout =2)
         slog.info("put send_queue:{0} size:{1}, item:{2}".format(SENDQ, SENDQ.qsize(),json.dumps(alarm_payload)))
     except Exception as e:
         slog.info("queue full, drop alarm_payload")
@@ -149,7 +153,7 @@ def put_sendq(alarm_payload):
 def put_recvq(alarm_payload):
     global RECVQ 
     try:
-        RECVQ.put(alarm_payload, block=True, timeout =2)
+        RECVQ.put(json.dumps(alarm_payload), block=True, timeout =2)
         slog.info("put recv_queue:{0} size:{1} item:{2}".format(RECVQ, RECVQ.qsize(),json.dumps(alarm_payload)))
     except Exception as e:
         slog.info("queue full, drop alarm_payload")
@@ -158,7 +162,7 @@ def put_recvq(alarm_payload):
     
 # grep broadcast log
 def grep_log_broadcast(line):
-    global SENDQ, RECVQ, gconfig
+    global SENDQ, RECVQ, gconfig, mypublicip
     grep_broadcast = gconfig.get('grep_broadcast')
 
     '''
@@ -222,7 +226,7 @@ def grep_log_broadcast(line):
             return False
         slog.info('grep_broadcast final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
 
-
+        packet_info['public_ip'] = mypublicip
         #slog.info(packet_info)
         alarm_payload = {
                 'alarm_type': grep_broadcast.get('alarm_type'),
@@ -341,7 +345,7 @@ def grep_log_networksize(line):
 
 # grep point2point log
 def grep_log_point2point(line):
-    global SENDQ, RECVQ, gconfig
+    global SENDQ, RECVQ, gconfig, mypublicip
     grep_point2point = gconfig.get('grep_point2point')
 
     '''
@@ -407,6 +411,7 @@ def grep_log_point2point(line):
         slog.info('grep_point2point final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
         #slog.info(packet_info)
 
+        packet_info['public_ip'] = mypublicip
         alarm_payload = {
                 'alarm_type': grep_broadcast.get('alarm_type'),
                 'alarm_content': packet_info,
@@ -538,7 +543,12 @@ def do_alarm(alarm_list):
             'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36',
             'Content-Type': 'application/json;charset=UTF-8',
             }
-    my_data = json.dumps(alarm_list)
+    #my_data = json.dumps(alarm_list)
+    my_data = {
+            'token': 'testtoken',
+            'data': []
+            }
+    my_data['data'] = alarm_list
     slog.info("do_alarm: {0}".format(my_data))
     try:
         #res = requests.post(url, headers = my_headers,data = my_data, timeout = 5)
@@ -554,7 +564,6 @@ def do_alarm(alarm_list):
         slog.info("exception: {0}".format(e))
 
     return
-
 
 
 def consumer_send():
