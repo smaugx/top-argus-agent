@@ -549,6 +549,7 @@ def do_alarm(alarm_list):
             'data': []
             }
     my_data['data'] = alarm_list
+    my_data = json.dumps(my_data)
     slog.info("do_alarm: {0}".format(my_data))
     try:
         #res = requests.post(url, headers = my_headers,data = my_data, timeout = 5)
