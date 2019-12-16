@@ -143,7 +143,8 @@ def print_queue():
 def put_sendq(alarm_payload):
     global SENDQ
     try:
-        SENDQ.put(json.dumps(alarm_payload), block=True, timeout =2)
+        #SENDQ.put(json.dumps(alarm_payload), block=True, timeout =2)
+        SENDQ.put(alarm_payload, block=True, timeout =2)
         slog.info("put send_queue:{0} size:{1}, item:{2}".format(SENDQ, SENDQ.qsize(),json.dumps(alarm_payload)))
     except Exception as e:
         slog.info("queue full, drop alarm_payload")
@@ -153,7 +154,8 @@ def put_sendq(alarm_payload):
 def put_recvq(alarm_payload):
     global RECVQ 
     try:
-        RECVQ.put(json.dumps(alarm_payload), block=True, timeout =2)
+        #RECVQ.put(json.dumps(alarm_payload), block=True, timeout =2)
+        RECVQ.put(alarm_payload, block=True, timeout =2)
         slog.info("put recv_queue:{0} size:{1} item:{2}".format(RECVQ, RECVQ.qsize(),json.dumps(alarm_payload)))
     except Exception as e:
         slog.info("queue full, drop alarm_payload")
