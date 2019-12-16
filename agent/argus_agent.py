@@ -313,7 +313,7 @@ def grep_log_networksize(line):
                 }
 
         rn = random.randint(0,10000000) % 100 + 1  # [1,100]
-        if rn > sample_rate:
+        if rn > sample_rate and node_id_status == 'normal':
             slog.info('grep_networksize final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
             return False
         slog.info('grep_networksize final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
