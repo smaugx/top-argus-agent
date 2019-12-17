@@ -448,15 +448,16 @@ def grep_progress(filename):
         slog.warn("no node_id exist, stop alarm xtopchain down!")
         return False
 
-    alarm_payload = {
-            'alarm_type': gconfig.get('grep_xtopchain').get('alarm_type'),
-            'alarm_content': {
-                'node_id': node_ids[0],
-                'info': 'xtopchain down!',
-                'timestamp': int(time.time() * 1000),
-                },
-            }
-    put_sendq(alarm_payload)
+    for node_id in node_ids:
+        alarm_payload = {
+                'alarm_type': gconfig.get('grep_xtopchain').get('alarm_type'),
+                'alarm_content': {
+                    'node_id': node_id,
+                    'info': 'xtopchain down!',
+                    'timestamp': int(time.time() * 1000),
+                    },
+                }
+        put_sendq(alarm_payload)
     return True
 
 
