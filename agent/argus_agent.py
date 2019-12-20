@@ -415,7 +415,7 @@ def grep_log_point2point(line):
 
         packet_info['public_ip'] = mypublicip
         alarm_payload = {
-                'alarm_type': grep_broadcast.get('alarm_type'),
+                'alarm_type': grep_point2point.get('alarm_type'),
                 'alarm_content': packet_info,
                 }
         if send_flag:
