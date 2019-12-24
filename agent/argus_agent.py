@@ -31,25 +31,26 @@ from common.slogging import slog
 SENDQ = queue.Queue(10000)
 RECVQ = queue.Queue(10000)
 gconfig = {
-        'global_sample_rate': 100,  # sample_rate%
+        'global_sample_rate': 1000,  # sample_rate%。
         'alarm_pack_num': 2,   # upload alarm size one time
+        'config_update_time': 5 * 60,  # 5 min
         'grep_broadcast': {
             'start': 'true',
-            'sample_rate': 100,
+            'sample_rate': 100,    # 10%
             'alarm_type': 'packet',
-            'network_focus_on': ['660000', '680000', '690000'], # src or dest
-            'network_ignore':   ['670000'],  # src or dest
+            'network_focus_on': ['640000','650000', '660000', '670000', '680000', '690000'], # src or dest
+            'network_ignore':   [],  # src or dest
             },
         'grep_point2point': {
             'start': 'false',
-            'sample_rate': 100,
+            'sample_rate': 10,    # 1%
             'alarm_type': 'packet',
-            'network_focus_on': ['660000', '680000', '690000'], # src or dest
-            'network_ignore':   ['670000'],  # src or dest
+            'network_focus_on': ['640000','650000', '660000', '670000', '680000', '690000'], # src or dest
+            'network_ignore':   [],  # src or dest
             },
         'grep_networksize': {
             'start': 'true',
-            'sample_rate': 20,
+            'sample_rate': 50,  # 5%
             'alarm_type': 'networksize',
             },
         'grep_xtopchain': {
@@ -121,9 +122,13 @@ def update_config_from_remote():
     return True
 
 def update_config():
+    global gconfig
     while True:
-        time.sleep(60)
-        slog.info('update remote config alive')
+        time_step = gconfig.get('config_update_time')
+        if not time_step:
+            time_step = 5 * 60
+        time.sleep(time_step)
+        slog.info('update remote config alive, update_step:{0} s'.format(time_step))
         update_config_from_remote()
 
     return
@@ -171,7 +176,7 @@ def grep_log_broadcast(line):
     # something like: 
     'grep_broadcast': {
         'start': 'true',
-        'sample_rate': 100,
+        'sample_rate': 1000,
         'network_focus_on': ['660000', '680000', '690000'], # src or dest
         'network_ignore':   ['670000'],  # src or dest
         }
@@ -222,7 +227,7 @@ def grep_log_broadcast(line):
             packet_info[key] = value
 
         chain_hash = int(packet_info.get('chain_hash'))
-        rn = chain_hash % 100 + 1  # [1,100]
+        rn = chain_hash % 1000 + 1  # [1,1000]
         if rn > sample_rate:
             slog.info('grep_broadcast final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
             return False
@@ -254,7 +259,7 @@ def grep_log_networksize(line):
     # something like: 
     'grep_networksize': {
         'start': 'true',
-        'sample_rate': 100,
+        'sample_rate': 1000,
         'alarm_type': 'networksize',
         }
     '''
@@ -312,7 +317,7 @@ def grep_log_networksize(line):
                 'node_id_status': node_id_status,
                 }
 
-        rn = random.randint(0,10000000) % 100 + 1  # [1,100]
+        rn = random.randint(0,100000000) % 1000 + 1  # [1,1000]
         if rn > sample_rate and node_id_status == 'normal':
             slog.info('grep_networksize final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
             return False
@@ -336,6 +341,9 @@ def grep_log_networksize(line):
                     'alarm_content': content,
                     }
             slog.info('grep_networksize remove node_id alarm_payload: {0}'.format(json.dumps(alarm_payload)))
+            # attention : alarm 3 times
+            put_sendq(alarm_payload)
+            put_sendq(alarm_payload)
             put_sendq(alarm_payload)
             NodeIdMap.pop(rm_node_id)
 
@@ -354,7 +362,7 @@ def grep_log_point2point(line):
     # something like: 
     'grep_point2point': {
         'start': 'false',
-        'sample_rate': 100,
+        'sample_rate': 1000,
         'network_focus_on': ['660000', '680000', '690000'], # src or dest
         'network_ignore':   ['670000'],  # src or dest
         },
@@ -406,7 +414,7 @@ def grep_log_point2point(line):
 
 
         chain_hash = int(packet_info.get('chain_hash'))
-        rn = chain_hash % 100 + 1  # [1,100]
+        rn = chain_hash % 1000 + 1  # [1,1000]
         if rn > sample_rate:
             slog.info('grep_point2point final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
             return False
@@ -457,6 +465,8 @@ def grep_progress(filename):
                     'timestamp': int(time.time() * 1000),
                     },
                 }
+        put_sendq(alarm_payload)
+        put_sendq(alarm_payload)
         put_sendq(alarm_payload)
     return True
 
