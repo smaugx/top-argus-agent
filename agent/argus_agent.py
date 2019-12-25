@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0, base_dir)
 
 
+import hashlib
 import queue
 import time
 import requests
