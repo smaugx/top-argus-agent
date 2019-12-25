@@ -227,7 +227,10 @@ def grep_log_broadcast(line):
             packet_info[key] = value
 
         chain_hash = int(packet_info.get('chain_hash'))
-        rn = chain_hash % 1000 + 1  # [1,1000]
+        uniq_key = '{0}_{1}_{2}'.format(chain_hash, packet_info.get('src_node_id')[-10:], packet_info.get('dest_node_id')[-10:])
+        uniq_chain_hash = int(hashlib.sha256(uniq_key.encode('utf-8')).hexdigest(),16)  % ( 10 ** 19)
+        packet_info['uniq_chain_hash'] = uniq_chain_hash
+        rn = uniq_chain_hash % 1000 + 1  # [1,1000]
         if rn > sample_rate:
             slog.info('grep_broadcast final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
             return False
@@ -414,7 +417,10 @@ def grep_log_point2point(line):
 
 
         chain_hash = int(packet_info.get('chain_hash'))
-        rn = chain_hash % 1000 + 1  # [1,1000]
+        uniq_key = '{0}_{1}_{2}'.format(chain_hash, packet_info.get('src_node_id')[-10:], packet_info.get('dest_node_id')[-10:])
+        uniq_chain_hash = int(hashlib.sha256(uniq_key.encode('utf-8')).hexdigest(),16)  % ( 10 ** 19)
+        packet_info['uniq_chain_hash'] = uniq_chain_hash
+        rn = uniq_chain_hash % 1000 + 1  # [1,1000]
         if rn > sample_rate:
             slog.info('grep_point2point final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
             return False
