@@ -457,7 +457,7 @@ def grep_progress(filename):
 
     mark_down_flag = True
     alarm_payload = {
-            'alarm_type': gconfig.get('grep_broadcast').get('alarm_type'),
+            'alarm_type': gconfig.get('grep_networksize').get('alarm_type'),
             'alarm_content': {
                 'node_ip': mypublic_ip_port,
                 'node_id': my_root_id,
@@ -605,6 +605,7 @@ def consumer_alarm_high():
     global ALARMQ, ALARMQ_HIGH, gconfig
     th_name = threading.current_thread().name
     alarm_pack_num = gconfig.get('alarm_pack_num')
+    alarm_pack_num = 1
     alarm_list = []
     while True:
         try:
