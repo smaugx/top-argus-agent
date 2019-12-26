@@ -29,22 +29,22 @@ from common.slogging import slog
 
 #xnetwork-08:35:49.631-T1719:[Keyfo]-(elect_vhost.cc: HandleRumorMessage:381): final_handle_rumor local_node_id:010000fc609372cc194a437ae775bdbf00000000d60a7c10e9cc5f94e24cb9c63ee1fba3 chain_hash:771962061 chain_msgid:655361 packet_size:608 chain_msg_size:196 hop_num:1 recv_timestamp:1573547749646 src_node_id:690000010140ff7fffffffffffffffff000000009aee88245d7e31e7abaab1ac9956d5a0 dest_node_id:690000010140ff7fffffffffffffffff0000000032eae48d5405ad0a57173799f7490716 is_root:0 broadcast:0
 
-SENDQ = queue.Queue(10000)
-RECVQ = queue.Queue(10000)
+ALARMQ = queue.Queue(10000)
+ALARMQ_HIGH = queue.Queue(10000)
 gconfig = {
         'global_sample_rate': 1000,  # sample_rate%。
         'alarm_pack_num': 2,   # upload alarm size one time
         'config_update_time': 5 * 60,  # 5 min
         'grep_broadcast': {
             'start': 'true',
-            'sample_rate': 100,    # 10%
+            'sample_rate': 200,    # 20%
             'alarm_type': 'packet',
             'network_focus_on': ['640000','650000', '660000', '670000', '680000', '690000'], # src or dest
             'network_ignore':   [],  # src or dest
             },
         'grep_point2point': {
             'start': 'false',
-            'sample_rate': 10,    # 1%
+            'sample_rate': 5,    # 1%
             'alarm_type': 'packet',
             'network_focus_on': ['640000','650000', '660000', '670000', '680000', '690000'], # src or dest
             'network_ignore':   [],  # src or dest
@@ -64,8 +64,8 @@ mark_down_flag = False
 
 alarm_proxy_host = '127.0.0.1:9090'
 mysession = requests.Session()
-mypublicip = '127.0.0.1'
-
+mypublic_ip_port = '127.0.0.1:9000'
+my_root_id = ''
 
 def dict_cmp(a, b):
     typea = isinstance(a, dict) 
@@ -88,7 +88,7 @@ def dict_cmp(a, b):
     return True
 
 def update_config_from_remote():
-    global gconfig, alarm_proxy_host, mypublicip
+    global gconfig, alarm_proxy_host, mypublic_ip_port 
     url = 'http://' + alarm_proxy_host
     url = urljoin(url, '/api/config/')
     my_headers = {
@@ -102,9 +102,6 @@ def update_config_from_remote():
             if res.json().get('status') == 0:
                 slog.info("get remote config ok, response: {0}".format(res.text))
                 config = res.json().get('config')
-                ip = res.json().get('ip')
-                if ip != None and ip.find(':') != -1:
-                    mypublicip = ip
     except Exception as e:
         slog.info("exception: {0}".format(e))
         return False
@@ -135,34 +132,33 @@ def update_config():
     return
 
 def clear_queue():
-    global SENDQ, RECVQ
-    while not SENDQ.empty():
-        SENDQ.get()
-    while not RECVQ.empty():
-        RECVQ.get()
-    slog.info("clear sendqueue/recvqueue")
+    global ALARMQ, ALARMQ_HIGH 
+    while not ALARMQ.empty():
+        ALARMQ.get()
+    while not ALARMQ_HIGH.empty():
+        ALARMQ_HIGH.get()
+    slog.info("clear alarmqueue/alarm_high_queue")
 
 def print_queue():
-    global SENDQ, RECVQ
-    slog.info("sendqueue.size = {0}, recvqueue.size = {1}".format(SENDQ.qsize(), RECVQ.qsize()))
+    global ALARMQ, ALARMQ_HIGH 
+    slog.info("alarmqueue.size = {0}, alarm_queue_high.size = {1}".format(ALARMQ.qsize(), ALARMQ_HIGH.qsize()))
 
-def put_sendq(alarm_payload):
-    global SENDQ
+def put_alarmq(alarm_payload):
+    global ALARMQ 
     try:
-        #SENDQ.put(json.dumps(alarm_payload), block=True, timeout =2)
-        SENDQ.put(alarm_payload, block=True, timeout =2)
-        slog.info("put send_queue:{0} size:{1}, item:{2}".format(SENDQ, SENDQ.qsize(),json.dumps(alarm_payload)))
+        ALARMQ.put(alarm_payload, block=True, timeout =2)
+        slog.info("put send_queue:{0} size:{1}, item:{2}".format(ALARMQ, ALARMQ.qsize(),json.dumps(alarm_payload)))
     except Exception as e:
         slog.info("queue full, drop alarm_payload")
         return False
     return True
 
-def put_recvq(alarm_payload):
-    global RECVQ 
+# with high priority and reliable
+def put_alarmq_high(alarm_payload):
+    global ALARMQ_HIGH
     try:
-        #RECVQ.put(json.dumps(alarm_payload), block=True, timeout =2)
-        RECVQ.put(alarm_payload, block=True, timeout =2)
-        slog.info("put recv_queue:{0} size:{1} item:{2}".format(RECVQ, RECVQ.qsize(),json.dumps(alarm_payload)))
+        ALARMQ_HIGH.put(alarm_payload, block=True, timeout =2)
+        slog.info("put alarm_queue_high:{0} size:{1} item:{2}".format(ALARMQ_HIGH, ALARMQ_HIGH.qsize(),json.dumps(alarm_payload)))
     except Exception as e:
         slog.info("queue full, drop alarm_payload")
         return False
@@ -170,7 +166,7 @@ def put_recvq(alarm_payload):
     
 # grep broadcast log
 def grep_log_broadcast(line):
-    global SENDQ, RECVQ, gconfig, mypublicip
+    global ALARMQ, ALARMQ_HIGH, gconfig, mypublic_ip_port 
     grep_broadcast = gconfig.get('grep_broadcast')
 
     '''
@@ -238,18 +234,14 @@ def grep_log_broadcast(line):
             return False
         slog.info('grep_broadcast final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
 
-        packet_info['public_ip'] = mypublicip
+        packet_info['public_ip'] = mypublic_ip_port.split(':')[0] 
         #slog.info(packet_info)
         alarm_payload = {
                 'alarm_type': grep_broadcast.get('alarm_type'),
                 'alarm_content': packet_info,
                 }
 
-        if send_flag:
-            put_sendq(alarm_payload)
-        if recv_flag:
-            put_recvq(alarm_payload)
-
+        put_alarmq(alarm_payload)
     except Exception as e:
         slog.info("grep_log exception: {0} line:{1}".format(e, line))
         return False
@@ -257,7 +249,7 @@ def grep_log_broadcast(line):
 
 # grep network nodes size log
 def grep_log_networksize(line):
-    global SENDQ, RECVQ, gconfig, NodeIdMap
+    global ALARMQ, ALARMQ_HIGH, gconfig, NodeIdMap, mypublic_ip_port, my_root_id
     grep_networksize= gconfig.get('grep_networksize')
 
     '''
@@ -299,6 +291,13 @@ def grep_log_networksize(line):
         if int(port) <= 0:
             return False
 
+        if ip != mypublic_ip_port.split(':')[0]:
+            mypublic_ip_port = '{0}:{1}'.format(ip, port)
+            slog.info('local update public_ip:{0}'.format(mypublic_ip_port))
+        if not my_root_id and node_id.startswith('010000'):
+            my_root_id = node_id
+            slog.info('local update root_id:{0}'.format(my_root_id))
+
         net_size_index = line.find('set_size:')
         net_size_end_index = line.find(',ip')
         net_size = line[net_size_index+9:net_size_end_index]
@@ -308,19 +307,30 @@ def grep_log_networksize(line):
         for (k,v) in NodeIdMap.items():
             if k == node_id:
                 NodeIdMap[k] = now
-            if (now - v) > 30: # 30s count, node_id(k) maybe unregister
+            if (now - v) > 60: # 60s count, node_id(k) maybe unregister
                 tmp_remove.append(k)
 
-        node_id_status = 'normal'
-        if node_id not in NodeIdMap:
-            node_id_status = 'add'
-            NodeIdMap[node_id] = now
+        node_id_status = 'normal'  # normal, add, remove, dead
 
-        content = {
-                'node_id': node_id,
-                'node_ip': ip+":"+port,
-                'node_id_status': node_id_status,
-                }
+        # attention: handle not exist node, not limit by sample rate
+        for rm_node_id in tmp_remove:
+            if rm_node_id.startswith('0100'):
+                node_id_status = 'dead'
+            else:
+                node_id_status = 'remove'
+            content = {
+                    'node_id': rm_node_id,
+                    'node_ip': ip+":"+port,
+                    'node_id_status': node_id_status,
+                    'send_timestamp': int(time.time() * 1000)
+                    }
+            alarm_payload = {
+                    'alarm_type': grep_networksize.get('alarm_type'),
+                    'alarm_content': content,
+                    }
+            slog.info('grep_networksize remove node_id alarm_payload: {0}'.format(json.dumps(alarm_payload)))
+            put_alarmq_high(alarm_payload)
+            NodeIdMap.pop(rm_node_id)
 
         rn = random.randint(0,100000000) % 1000 + 1  # [1,1000]
         if rn > sample_rate and node_id_status == 'normal':
@@ -328,30 +338,21 @@ def grep_log_networksize(line):
             return False
         slog.info('grep_networksize final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
 
+        node_id_status = 'normal'  # normal, add, remove, dead
+        if node_id not in NodeIdMap:
+            node_id_status = 'add'
+            NodeIdMap[node_id] = now
+        content = {
+                'node_id': node_id,
+                'node_ip': ip+":"+port,
+                'node_id_status': node_id_status,
+                }
         alarm_payload = {
                 'alarm_type': grep_networksize.get('alarm_type'),
                 'alarm_content': content,
                 }
         slog.info('grep_networksize alarm_payload: {0}'.format(json.dumps(alarm_payload)))
-        put_sendq(alarm_payload)
-
-        # not exist node_id
-        for rm_node_id in tmp_remove:
-            content = {
-                    'node_id': rm_node_id,
-                    'node_id_status': 'remove'
-                    }
-            alarm_payload = {
-                    'alarm_type': grep_networksize.get('alarm_type'),
-                    'alarm_content': content,
-                    }
-            slog.info('grep_networksize remove node_id alarm_payload: {0}'.format(json.dumps(alarm_payload)))
-            # attention : alarm 3 times
-            put_sendq(alarm_payload)
-            put_sendq(alarm_payload)
-            put_sendq(alarm_payload)
-            NodeIdMap.pop(rm_node_id)
-
+        put_alarmq(alarm_payload)
     except Exception as e:
         slog.info("grep_log_networksize exception: {0} line:{1}".format(e, line))
         return False
@@ -360,7 +361,7 @@ def grep_log_networksize(line):
 
 # grep point2point log
 def grep_log_point2point(line):
-    global SENDQ, RECVQ, gconfig, mypublicip
+    global ALARMQ, ALARMQ_HIGH, gconfig, mypublic_ip_port 
     grep_point2point = gconfig.get('grep_point2point')
 
     '''
@@ -429,15 +430,12 @@ def grep_log_point2point(line):
         slog.info('grep_point2point final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
         #slog.info(packet_info)
 
-        packet_info['public_ip'] = mypublicip
+        packet_info['public_ip'] = mypublic_ip_port.split(':')[0]
         alarm_payload = {
                 'alarm_type': grep_point2point.get('alarm_type'),
                 'alarm_content': packet_info,
                 }
-        if send_flag:
-            put_sendq(alarm_payload)
-        if recv_flag:
-            put_recvq(alarm_payload)
+        put_alarmq(alarm_payload)
 
     except Exception as e:
         slog.info("grep_log exception: {0} line:{1}".format(e, line))
@@ -445,11 +443,12 @@ def grep_log_point2point(line):
     return True
 
 def grep_progress(filename):
-    global  gconfig, mark_down_flag
+    global  gconfig, mark_down_flag, mypublic_ip_port, my_root_id
     if mark_down_flag:
         return False
     if not gconfig.get('grep_xtopchain') or gconfig.get('grep_xtopchain').get('start') == 'false':
         return False
+    cmd = 'ps -ef |grep xtopchain |grep -v grep'
     cmd = 'lsof {0} |grep xtopchain'.format(filename)
     result = os.popen(cmd).readlines()
     if result:
@@ -457,25 +456,17 @@ def grep_progress(filename):
     slog.warn('xtopchain down!! xtopchain down!! xtopchain down!! filename:{0}'.format(filename))
 
     mark_down_flag = True
-    node_ids = []
-    for k,v in NodeIdMap.items():
-        node_ids.append(k)
-    if not node_ids:
-        slog.warn("no node_id exist, stop alarm xtopchain down!")
-        return False
-
-    for node_id in node_ids:
-        alarm_payload = {
-                'alarm_type': gconfig.get('grep_xtopchain').get('alarm_type'),
-                'alarm_content': {
-                    'node_id': node_id,
-                    'info': 'xtopchain down!',
-                    'timestamp': int(time.time() * 1000),
-                    },
-                }
-        put_sendq(alarm_payload)
-        put_sendq(alarm_payload)
-        put_sendq(alarm_payload)
+    alarm_payload = {
+            'alarm_type': gconfig.get('grep_broadcast').get('alarm_type'),
+            'alarm_content': {
+                'node_ip': mypublic_ip_port,
+                'node_id': my_root_id,
+                'node_id_status': 'dead',
+                'send_timestamp': int(time.time() * 1000),
+                'info': 'xtopchain down!'
+                },
+            }
+    put_alarmq_high(alarm_payload)
     return True
 
 
@@ -491,7 +482,7 @@ def grep_log(line):
 
     if ret1 or ret2 or ret3:
         print_queue()
-    return SENDQ.qsize(), RECVQ.qsize()
+    return ALARMQ.qsize(), ALARMQ_HIGH.qsize()
 
 def watchlog(filename, offset = 0):
     try:
@@ -548,13 +539,13 @@ def watchlog(filename, offset = 0):
     return 0
 
 def run_watch(filename = './xtop.log'):
-    global SENDQ, RECVQ
+    global ALARMQ,ALARMQ_HIGH 
     clear_queue()
     offset = 0
     while True:
         time.sleep(1)
         offset = watchlog(filename, offset)
-        slog.info("grep_log finish, sendq.size = {0} recvq.size = {1}, offset = {2}".format(SENDQ.qsize(), RECVQ.qsize(), offset))
+        slog.info("grep_log finish, alarmqueue.size = {0} alarmq_high.size = {1}, offset = {2}".format(ALARMQ.qsize(), ALARMQ_HIGH.qsize(), offset))
 
 def do_alarm(alarm_list):
     global alarm_proxy_host
@@ -578,6 +569,7 @@ def do_alarm(alarm_list):
         if res.status_code == 200:
             if res.json().get('status') == 0:
                 slog.info("send alarm ok, response: {0}".format(res.text))
+                return True
             else:
                 slog.info("send alarm fail, response: {0}".format(res.text))
         else:
@@ -585,23 +577,23 @@ def do_alarm(alarm_list):
     except Exception as e:
         slog.info("exception: {0}".format(e))
 
-    return
+    return False
 
 
-def consumer_send():
-    global SENDQ, RECVQ, gconfig
+def consumer_alarm():
+    global ALARMQ, ALARMQ_HIGH, gconfig
     alarm_pack_num = gconfig.get('alarm_pack_num')
     th_name = threading.current_thread().name
     alarm_list = []
     while True:
         try:
-            slog.info("consumer thread:{0} send_queue:{1} size:{2}".format(th_name, SENDQ, SENDQ.qsize()))
-            while not SENDQ.empty():
-                alarm_payload = SENDQ.get()
+            slog.info("consumer thread:{0} send_queue:{1} size:{2}".format(th_name, ALARMQ, ALARMQ.qsize()))
+            while not ALARMQ.empty():
+                alarm_payload = ALARMQ.get()
                 alarm_list.append(alarm_payload)
 
                 if len(alarm_list) >= alarm_pack_num:
-                    slog.info("send do_alarm")
+                    slog.info("alarm do_alarm")
                     do_alarm(alarm_list)
                     alarm_list.clear()
 
@@ -609,48 +601,30 @@ def consumer_send():
         except Exception as e:
             pass
 
-def consumer_recv():
-    global SENDQ, RECVQ, gconfig
+def consumer_alarm_high():
+    global ALARMQ, ALARMQ_HIGH, gconfig
     th_name = threading.current_thread().name
     alarm_pack_num = gconfig.get('alarm_pack_num')
     alarm_list = []
     while True:
         try:
-            slog.info("consumer thread:{0} recv_queue:{1} size:{2}".format(th_name, RECVQ, RECVQ.qsize()))
-            while not RECVQ.empty():
-                alarm_payload = RECVQ.get()
+            slog.info("consumer thread:{0} recv_queue:{1} size:{2}".format(th_name, ALARMQ_HIGH, ALARMQ_HIGH.qsize()))
+            while not ALARMQ_HIGH.empty():
+                alarm_payload = ALARMQ_HIGH.get()
                 alarm_list.append(alarm_payload)
 
                 if len(alarm_list) >= alarm_pack_num:
-                    slog.info("recv do_alarm")
-                    do_alarm(alarm_list)
+                    slog.info("alarm_high do_alarm")
+                    if not do_alarm(alarm_list):
+                        slog.warn("alarm_high send failed, put in queue again")
+                        for item in alarm_list:
+                            put_alarmq_high(item)
                     alarm_list.clear()
 
             time.sleep(1)
         except Exception as e:
             pass
 
-def consumer_recv_test():
-    global SENDQ, RECVQ
-    alarm_list = []
-    while True:
-        try:
-            time.sleep(1)
-            while not RECVQ.empty():
-                slog.info("consumer_recv size: {0}".format(RECVQ.qsize()))
-                if len(alarm_list) >= 10:
-                    slog.info("recv do_alarm")
-                    do_alarm(alarm_list)
-                    alarm_list.clear()
-
-                alarm_payload = RECVQ.get()
-                alarm_list.append(alarm_payload)
-        except Exception as e:
-            pass
-
-
-
-    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.description='TOP-Argus Agent，拉取远程配置，报警采集并上报'
@@ -684,18 +658,14 @@ if __name__ == "__main__":
     watchlog_th.start()
     slog.info("start watchlog thread")
 
-    con_send_th = threading.Thread(target = consumer_send)
+    con_send_th = threading.Thread(target = consumer_alarm)
     con_send_th.start()
-    slog.info("start consumer_send thread")
+    slog.info("start consumer_alarm thread")
 
 
-    con_recv_th = threading.Thread(target = consumer_recv)
+    con_recv_th = threading.Thread(target = consumer_alarm_high)
     con_recv_th.start()
-    slog.info("start consumer_recv thread")
-
-    #con_recv_th2 = threading.Thread(target = consumer_recv)
-    #con_recv_th2.start()
-    #slog.info("start consumer_recv2 thread")
+    slog.info("start consumer_alarm_high thread")
 
     slog.info('main thread wait...')
     watchlog_th.join()
