@@ -332,16 +332,18 @@ def grep_log_networksize(line):
             put_alarmq_high(alarm_payload)
             NodeIdMap.pop(rm_node_id)
 
-        rn = random.randint(0,100000000) % 1000 + 1  # [1,1000]
-        if rn > sample_rate and node_id_status == 'normal':
-            slog.info('grep_networksize final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
-            return False
-        slog.info('grep_networksize final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
-
         node_id_status = 'normal'  # normal, add, remove, dead
         if node_id not in NodeIdMap:
             node_id_status = 'add'
             NodeIdMap[node_id] = now
+
+        if node_id_status == 'normal':
+            rn = random.randint(0,100000000) % 1000 + 1  # [1,1000]
+            if rn > sample_rate and node_id_status == 'normal':
+                slog.info('grep_networksize final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
+                return False
+            slog.info('grep_networksize final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
+
         content = {
                 'node_id': node_id,
                 'node_ip': ip+":"+port,
