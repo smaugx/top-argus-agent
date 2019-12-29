@@ -631,7 +631,7 @@ def system_cron_job():
         alarm_content['send_bandwidth'] = net_result.get('send_bandwidth')
         alarm_content['recv_packet']    = net_result.get('recv_packet')
         alarm_content['send_packet']    = net_result.get('send_packet')
-        alarm_content['send_timestamp'] = now * 1000
+        alarm_content['send_timestamp'] = int(now * 1000)
         alarm_content['public_ip_port'] = mypublic_ip_port
 
         alarm_payload = {
@@ -640,7 +640,7 @@ def system_cron_job():
                 }
 
         slog.debug('run system_cron_job ok:{0}'.format(json.dumps(alarm_payload)))
-        #put_alarmq(alarm_payload)
+        put_alarmq(alarm_payload)
     return
 
  
