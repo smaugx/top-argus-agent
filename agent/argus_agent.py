@@ -24,13 +24,15 @@ import argparse
 from urllib.parse import urljoin
 
 from common.slogging import slog
+from agent.cpu import CpuWatch
+from agent.net import BandwidthWatch
 
 #xnetwork-08:35:49.631-T1719:[Keyfo]-(elect_vhost.cc: HandleRumorMessage:381): original_elect_vhost_send local_node_id:010000fc609372cc194a437ae775bdbf00000000d60a7c10e9cc5f94e24cb9c63ee1fba3 chain_hash:3340835543 chain_msgid:655361 chain_msg_size:1382 send_timestamp:1573547735068 src_node_id:67000000ff7fff7fffffffffffffffff0000000032eae48d5405ad0a57173799f7490716 dest_node_id:67000000ff7fff7fffffffffffffffff0000000061d1343f82769c3eff69c5448e7b1fe5 is_root:0 broadcast:0
 
 #xnetwork-08:35:49.631-T1719:[Keyfo]-(elect_vhost.cc: HandleRumorMessage:381): final_handle_rumor local_node_id:010000fc609372cc194a437ae775bdbf00000000d60a7c10e9cc5f94e24cb9c63ee1fba3 chain_hash:771962061 chain_msgid:655361 packet_size:608 chain_msg_size:196 hop_num:1 recv_timestamp:1573547749646 src_node_id:690000010140ff7fffffffffffffffff000000009aee88245d7e31e7abaab1ac9956d5a0 dest_node_id:690000010140ff7fffffffffffffffff0000000032eae48d5405ad0a57173799f7490716 is_root:0 broadcast:0
 
-ALARMQ = queue.Queue(10000)
-ALARMQ_HIGH = queue.Queue(10000)
+ALARMQ = queue.Queue(2000)
+ALARMQ_HIGH = queue.Queue(2000)
 gconfig = {
         'global_sample_rate': 1000,  # sample_rate%。
         'alarm_pack_num': 2,   # upload alarm size one time
@@ -54,9 +56,9 @@ gconfig = {
             'sample_rate': 50,  # 5%
             'alarm_type': 'networksize',
             },
-        'grep_xtopchain': {
+        'system_cron': {
             'start': 'true',
-            'alarm_type': 'progress',
+            'alarm_type': 'system',
             }
         }
 NodeIdMap = {} # keep all nodeid existing: key is node_id, value is timestamp (ms)
@@ -64,7 +66,7 @@ mark_down_flag = False
 
 alarm_proxy_host = '127.0.0.1:9090'
 mysession = requests.Session()
-mypublic_ip_port = '127.0.0.1:9000'
+mypublic_ip_port = '127.0.0.1:800'
 my_root_id = ''
 
 def dict_cmp(a, b):
@@ -444,14 +446,12 @@ def grep_log_point2point(line):
         return False
     return True
 
-def grep_progress(filename):
+def check_progress(filename):
     global  gconfig, mark_down_flag, mypublic_ip_port, my_root_id
     if mark_down_flag:
         return False
-    if not gconfig.get('grep_xtopchain') or gconfig.get('grep_xtopchain').get('start') == 'false':
-        return False
     cmd = 'ps -ef |grep xtopchain |grep -v grep'
-    cmd = 'lsof {0} |grep xtopchain'.format(filename)
+    #cmd = 'lsof {0} |grep xtopchain'.format(filename)
     result = os.popen(cmd).readlines()
     if result:
         return False
@@ -533,7 +533,7 @@ def watchlog(filename, offset = 0):
         return cur_pos
     if new_size == cur_pos:
         slog.info('logfile:{0} maybe stopped'.format(filename))
-        grep_progress(filename)
+        check_progress(filename)
         return cur_pos
 
     # new file "$filename" created
@@ -581,6 +581,67 @@ def do_alarm(alarm_list):
 
     return False
 
+def system_cron_job():
+    global ALARMQ, ALARMQ_HIGH, gconfig, mypublic_ip_port
+    time_step = 2 * 60
+    pid = None
+    band_watcher = BandwidthWatch(time_step = time_step)
+    cpu_watcher  = CpuWatch(time_step = time_step)
+    
+    alarm_content = {
+            'cpu':0,
+            'recv_bandwidth':0,
+            'send_bandwidth':0,
+            'recv_packet':0,
+            'send_packet':0,
+            }
+    alarm_type = gconfig.get('system_cron').get('alarm_type')
+    cpu_info_old = {}
+    band_info_old = {}
+    while True:
+        if mypublic_ip_port == '127.0.0.1:800':
+            time.sleep(1)
+            continue
+
+        if not cpu_info_old:
+            cpu_info_old = cpu_watcher.read_cpu()
+        if not band_info_old:
+            band_info_old = band_watcher.read_net(pid = pid)
+        time.sleep(time_step)
+
+        if gconfig.get('system_cron').get('start') != 'true':
+            continue
+
+        now = int(time.time()) / time_step * time_step  # belong time
+        # watch cpu
+        cpu_info = cpu_watcher.read_cpu()
+        cpu_result = cpu_watcher.get_avg_cpu(cpu_info_old, cpu_info)
+        cpu_info_old = copy.deepcopy(cpu_info)
+
+        "cpu_idle": int(float(delta_idle)/float(delta_total) * 100),
+        # watch bandwidth
+        band_info = band_watcher.read_net(pid = pid)
+        net_result = band_watcher.get_avg_bandwidth(band_info_old, band_info)
+        band_info_old = copy.deepcopy(band_info)
+
+        alarm_content['cpu'] = 100 - cpu_result.get('cpu_idle')
+        alarm_content['recv_bandwidth'] = net_result.get('recv_bandwidth')
+        alarm_content['send_bandwidth'] = net_result.get('send_bandwidth')
+        alarm_content['recv_packet']    = net_result.get('recv_packet')
+        alarm_content['send_packet']    = net_result.get('send_packet')
+        alarm_content['send_timestamp'] = now * 1000
+        alarm_content['public_ip_port'] = mypublic_ip_port
+
+        alarm_payload = {
+                'alarm_type': alarm_type,
+                'alarm_content': alarm_content,
+                }
+
+        slog.debug('run system_cron_job ok:{0}'.format(json.dumps(alarm_payload)))
+        #put_alarmq(alarm_payload)
+    return
+
+ 
 
 def consumer_alarm():
     global ALARMQ, ALARMQ_HIGH, gconfig
