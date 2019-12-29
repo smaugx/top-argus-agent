@@ -609,10 +609,11 @@ def system_cron_job():
             band_info_old = band_watcher.read_net(pid = pid)
         time.sleep(time_step)
 
+        now = int(int(time.time()) / time_step) * time_step  # belong time
+
         if gconfig.get('system_cron').get('start') != 'true':
             continue
 
-        now = int(time.time()) / time_step * time_step  # belong time
         # watch cpu
         cpu_info = cpu_watcher.read_cpu()
         cpu_result = cpu_watcher.get_avg_cpu(cpu_info_old, cpu_info)
