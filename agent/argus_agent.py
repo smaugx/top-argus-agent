@@ -618,7 +618,6 @@ def system_cron_job():
         cpu_result = cpu_watcher.get_avg_cpu(cpu_info_old, cpu_info)
         cpu_info_old = copy.deepcopy(cpu_info)
 
-        "cpu_idle": int(float(delta_idle)/float(delta_total) * 100),
         # watch bandwidth
         band_info = band_watcher.read_net(pid = pid)
         net_result = band_watcher.get_avg_bandwidth(band_info_old, band_info)
@@ -721,6 +720,11 @@ if __name__ == "__main__":
     watchlog_th = threading.Thread(target = run_watch, args = (alarm_filename, ))
     watchlog_th.start()
     slog.info("start watchlog thread")
+
+    sys_cron_th = threading.Thread(target = system_cron_job)
+    sys_cron_th.start()
+    slog.info("start system_cron_job thread")
+
 
     con_send_th = threading.Thread(target = consumer_alarm)
     con_send_th.start()
