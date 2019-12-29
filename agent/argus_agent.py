@@ -615,7 +615,10 @@ def system_cron_job():
         now = int(time.time()) / time_step * time_step  # belong time
         # watch cpu
         cpu_info = cpu_watcher.read_cpu()
-        cpu_result = cpu_watcher.get_avg_cpu(cpu_info_old, cpu_info)
+        cpu_results = cpu_watcher.get_avg_cpu(cpu_info_old, cpu_info)
+        cpu_result = {}
+        for k,v in cpu_results.items():
+            cpu_result = v
         cpu_info_old = copy.deepcopy(cpu_info)
 
         # watch bandwidth
