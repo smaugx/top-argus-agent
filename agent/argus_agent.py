@@ -615,15 +615,15 @@ def system_cron_job():
         now = int(time.time()) / time_step * time_step  # belong time
         # watch cpu
         cpu_info = cpu_watcher.read_cpu()
-        cpu_results = cpu_watcher.get_avg_cpu(cpu_info_old, cpu_info)
-        cpu_result = {}
-        for k,v in cpu_results.items():
-            cpu_result = v
+        cpu_result = cpu_watcher.get_avg_cpu(cpu_info_old, cpu_info)
         cpu_info_old = copy.deepcopy(cpu_info)
 
         # watch bandwidth
         band_info = band_watcher.read_net(pid = pid)
-        net_result = band_watcher.get_avg_bandwidth(band_info_old, band_info)
+        net_results = band_watcher.get_avg_bandwidth(band_info_old, band_info)
+        net_result = {}
+        for k,v in net_results.items():
+            net_result = v
         band_info_old = copy.deepcopy(band_info)
 
         alarm_content['cpu'] = 100 - cpu_result.get('cpu_idle')
