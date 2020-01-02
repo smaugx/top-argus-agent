@@ -24,6 +24,7 @@ class DemoCron(object):
         return
 
     def get_data(self):
+        self.capture_data()
         return self.result_
 
 
