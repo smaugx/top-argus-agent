@@ -189,7 +189,10 @@ def grep_log_broadcast(line):
         recv_flag = False if (line.find('alarm elect_vhost_final_recv') == -1) else True
         if not send_flag and not recv_flag:
             return False
-
+        
+        if send_flag and line.find('hop_num') != -1:
+            slog.debug('maybe not the original send info,line:{0}'.format(line))
+            return False
         if line.find('broadcast:1') == -1:
             slog.info('grep_broadcast found point2point')
             return False
