@@ -238,6 +238,7 @@ def grep_log_broadcast(line):
             slog.info('grep_broadcast final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
             return False
         slog.info('grep_broadcast final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
+        slog.debug('found the original send info,line:{0}'.format(line))
 
         packet_info['public_ip'] = mypublic_ip_port.split(':')[0] 
         #slog.info(packet_info)
