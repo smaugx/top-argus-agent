@@ -190,9 +190,11 @@ def grep_log_broadcast(line):
         if not send_flag and not recv_flag:
             return False
         
-        if send_flag and line.find('elect_command.cc') == -1:
-            slog.debug('maybe not the original send info,line:{0}'.format(line))
-            return False
+        if send_flag:
+            if line.find('Debug') != -1 or line.find('Info') != -1:
+                if line.find('elect_command.cc') == -1 and line.find('elect_vhost.cc') == -1:
+                    slog.debug('maybe not the original send info,line:{0}'.format(line))
+                    return False
         if line.find('broadcast:1') == -1:
             slog.info('grep_broadcast found point2point')
             return False
