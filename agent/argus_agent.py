@@ -190,7 +190,7 @@ def grep_log_broadcast(line):
         if not send_flag and not recv_flag:
             return False
         
-        if send_flag and line.find('hop_num') != -1:
+        if send_flag and line.find('elect_command.cc') == -1:
             slog.debug('maybe not the original send info,line:{0}'.format(line))
             return False
         if line.find('broadcast:1') == -1:
