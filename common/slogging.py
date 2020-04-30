@@ -65,9 +65,12 @@ def log_monitor():
     log_max_size = 100 * 1024 * 1024 # 100MB
     while True:
         time.sleep(60)
-        size = os.path.getsize(log_path)
-        if size > log_max_size:
-            open(log_path, 'w').close()
+        try:
+            size = os.path.getsize(log_path)
+            if size > log_max_size:
+                open(log_path, 'w').close()
+        except Exception as e:
+            pass
 
     return
 

