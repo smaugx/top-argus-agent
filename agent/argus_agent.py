@@ -27,9 +27,9 @@ from common.slogging import slog
 from agent.cpu import CpuWatch
 from agent.net import BandwidthWatch
 
-#xnetwork-08:35:49.631-T1719:[Keyfo]-(elect_vhost.cc: HandleRumorMessage:381): original_elect_vhost_send local_node_id:010000fc609372cc194a437ae775bdbf00000000d60a7c10e9cc5f94e24cb9c63ee1fba3 chain_hash:3340835543 chain_msgid:655361 chain_msg_size:1382 send_timestamp:1573547735068 src_node_id:67000000ff7fff7fffffffffffffffff0000000032eae48d5405ad0a57173799f7490716 dest_node_id:67000000ff7fff7fffffffffffffffff0000000061d1343f82769c3eff69c5448e7b1fe5 is_root:0 broadcast:0
+#xnetwork-14:02:05.899-T10719:[Keyfo]-(elect_netcard.cc: send:220): alarm elect_vhost_original_send local_node_id:ffffff5a10569d206a82b9f9555c2f53000000008f4a9aade07c40091694973c5b327842 chain_hash:1451210308 chain_msgid:655365 chain_msg_size:4983 send_timestamp:1591682525921 src_node_id: dest_node_id:0000000e0101ffffffffffffffffffff00000000edb57e31dc005ec08774db4439a479ef is_root:0 broadcast:0
 
-#xnetwork-08:35:49.631-T1719:[Keyfo]-(elect_vhost.cc: HandleRumorMessage:381): final_handle_rumor local_node_id:010000fc609372cc194a437ae775bdbf00000000d60a7c10e9cc5f94e24cb9c63ee1fba3 chain_hash:771962061 chain_msgid:655361 packet_size:608 chain_msg_size:196 hop_num:1 recv_timestamp:1573547749646 src_node_id:690000010140ff7fffffffffffffffff000000009aee88245d7e31e7abaab1ac9956d5a0 dest_node_id:690000010140ff7fffffffffffffffff0000000032eae48d5405ad0a57173799f7490716 is_root:0 broadcast:0
+#xnetwork-14:02:13.098-T10733:[Keyfo]-(elect_netcard.cc: HandleRumorMessage:430): alarm elect_vhost_final_recv local_node_id:ffffff5a10569d206a82b9f9555c2f53000000008f4a9aade07c40091694973c5b327842 chain_hash:1873601393 chain_msgid:655368 packet_size:726 chain_msg_size:383 hop_num:1 recv_timestamp:1591682533100 src_node_id:ffffff4d615b7daa410cc881f72245a8000000003d0bb84307792054aed60988e7d5f411 dest_node_id:ffffff5a10569d206a82b9f9555c2f53000000008f4a9aade07c40091694973c5b327842 is_root:1 broadcast:0
 
 ALARMQ = queue.Queue(2000)
 ALARMQ_HIGH = queue.Queue(2000)
@@ -41,14 +41,14 @@ gconfig = {
             'start': 'true',
             'sample_rate': 200,    # 20%
             'alarm_type': 'packet',
-            'network_focus_on': ['640000','650000', '660000', '670000', '680000', '690000'], # src or dest
+            'network_focus_on': ['000000010000','000000020000', '0000000f0101', '0000000e0101', '0000000001'], # src or dest: rec;zec;edg;arc;aud/val
             'network_ignore':   [],  # src or dest
             },
         'grep_point2point': {
             'start': 'false',
             'sample_rate': 5,    # 1%
             'alarm_type': 'packet',
-            'network_focus_on': ['640000','650000', '660000', '670000', '680000', '690000'], # src or dest
+            'network_focus_on': ['000000010000','000000020000', '0000000f0101', '0000000e0101', '0000000001'], # src or dest: rec;zec;edg;arc;aud/val
             'network_ignore':   [],  # src or dest
             },
         'grep_networksize': {
@@ -176,9 +176,17 @@ def grep_log_broadcast(line):
     'grep_broadcast': {
         'start': 'true',
         'sample_rate': 1000,
-        'network_focus_on': ['660000', '680000', '690000'], # src or dest
-        'network_ignore':   ['670000'],  # src or dest
+        'network_focus_on': ['0000000f0101', '000000010000', '000000020000', '0000000001'], # src or dest
+        'network_ignore':   ['0000000e0101'],  # src or dest
         }
+
+    # node_role.json
+    rec: 000000010000
+    zec: 000000020000
+    aud: 0000000001, 最后还有一个字节从 01 ~ 3f
+    val: 0000000001, 最后还有一个字节从 40 ~ 7e
+    arc: 0000000e0101
+    edg: 0000000f0101
     '''
     try:
         if grep_broadcast.get('start') != 'true':
@@ -272,7 +280,7 @@ def grep_log_networksize(line):
     '''
 
     '''
-    xnetwork-13:34:56.282-T26368:[Keyfo]-(): <bluert 670000..01f2ed> [67000000ff7fff7fffffffffffffffff00000000d2912dd96c4eced1f2d603506601f2ed][9079116111273787495][103][0][255][127][255][31][1] has nodes_ size(nodes size):128,set_size:128,ip:192.168.0.99,port:9000,heart_size:128,all_ips:[192.168.0.100:9000,192.168.0.101:9000,
+    xnetwork-14:02:08.955-T10729:[Keyfo]-(routing_table.cc: HeartbeatProc:668): <bluert 000000..e58888> [0000000f0101ffffffffffffffffffff000000007f4502de43edc43e704db5568de58888][9223091665936318464][0][15][1][1][255][31][3] has nodes_ size(nodes size):13,set_size:13,ip:127.0.0.1,port:9301,heart_size:13,all_ips:[127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9902,127.0.0.1:9302,127.0.0.1:9305,127.0.0.1:9304,127.0.0.1:9904,127.0.0.1:9303,127.0.0.1:9005,127.0.0.1:9000,127.0.0.1:9903,127.0.0.1:9002,127.0.0.1:9901,]
     '''
     try:
         if grep_networksize.get('start') != 'true':
@@ -324,7 +332,7 @@ def grep_log_networksize(line):
 
         # attention: handle not exist node, not limit by sample rate
         for rm_node_id in tmp_remove:
-            if rm_node_id.startswith('0100'):
+            if rm_node_id.startswith('ffffff'):  # kroot id
                 node_id_status = 'dead'
             else:
                 node_id_status = 'remove'
@@ -379,12 +387,21 @@ def grep_log_point2point(line):
     '''
     # something like: 
     'grep_point2point': {
-        'start': 'false',
+        'start': 'true',
         'sample_rate': 1000,
-        'network_focus_on': ['660000', '680000', '690000'], # src or dest
-        'network_ignore':   ['670000'],  # src or dest
-        },
+        'network_focus_on': ['0000000f0101', '000000010000', '000000020000', '0000000001'], # src or dest
+        'network_ignore':   ['0000000e0101'],  # src or dest
+        }
+
+    # node_role.json
+    rec: 000000010000
+    zec: 000000020000
+    aud: 0000000001, 最后还有一个字节从 01 ~ 3f
+    val: 0000000001, 最后还有一个字节从 40 ~ 7e
+    arc: 0000000e0101
+    edg: 0000000f0101
     '''
+
     try:
         if grep_point2point.get('start') != 'true':
             return False
