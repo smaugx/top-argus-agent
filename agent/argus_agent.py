@@ -5,7 +5,7 @@ import os
 now_dir = os.path.dirname(os.path.abspath(__file__))
 base_dir = os.path.dirname(now_dir)  #parent dir
 activate_this = '%s/vvlinux/bin/activate_this.py' % base_dir
-exec(open(activate_this).read())
+#exec(open(activate_this).read())
 
 import sys
 sys.path.insert(0, base_dir)
@@ -43,22 +43,22 @@ gconfig = {
         'config_update_time': 5 * 60,  # 5 min
         'grep_broadcast': {
             'start': 'true',
-            'sample_rate': 200,    # 20%
+            'sample_rate': 1000,    # 20%
             'alarm_type': 'packet',
             # xnetwork_id:3Bytes zone_id:1Byte cluster_id:1Byte group_id:1Byte  = hex:12 size
             'network_focus_on': ['ff0000010000','ff0000020000', 'ff00000f0101', 'ff00000e0101', 'ff00000001'], # src or dest: rec;zec;edg;arc;aud/val
             'network_ignore':   [],  # src or dest
             },
         'grep_point2point': {
-            'start': 'false',
-            'sample_rate': 5,    # 1%
+            'start': 'true',
+            'sample_rate': 1000,    # 1%
             'alarm_type': 'packet',
             'network_focus_on': ['ff0000010000','ff0000020000', 'ff00000f0101', 'ff00000e0101', 'ff00000001'], # src or dest: rec;zec;edg;arc;aud/val
             'network_ignore':   [],  # src or dest
             },
         'grep_networksize': {
             'start': 'true',
-            'sample_rate': 50,  # 5%
+            'sample_rate': 1000,  # 5%
             'alarm_type': 'networksize',
             },
         'system_cron': {
@@ -69,7 +69,7 @@ gconfig = {
 NodeIdMap = {} # keep all nodeid existing: key is node_id, value is timestamp (ms)
 mark_down_flag = False
 
-alarm_proxy_host = '127.0.0.1:9090'
+alarm_proxy_host = '127.0.0.1:19090'
 mysession = requests.Session()
 mypublic_ip_port = '127.0.0.1:800'
 my_root_id = ''
@@ -215,7 +215,7 @@ def grep_log_broadcast(line):
 
         jline = json.loads(sp_line[1])
         
-        if jline.get('broadcast') != 1:
+        if jline.get('content').get('broadcast') != 1:
             slog.info('grep_broadcast found point2point')
             return False
 
@@ -228,6 +228,7 @@ def grep_log_broadcast(line):
         network_focus_on = grep_broadcast.get('network_focus_on')
         nf_ret = False
         for nf in network_focus_on:
+            slog.info('nf:{0}'.format(nf))
             if line.find(nf) != -1:
                 nf_ret = True
                 break
@@ -298,9 +299,12 @@ def grep_log_networksize(line):
 
         sample_rate = grep_networksize.get('sample_rate')
 
-       node_id = jline.get('content').get('local_nodeid')
-       ip = jline.get('content').get('public_ip')
-       port = jline.get('content').get('public_port')
+        node_id = jline.get('content').get('local_nodeid')
+        ip = jline.get('content').get('public_ip')
+        port = jline.get('content').get('public_port')
+        if port <= 0:
+            return False
+        port = str(port)
 
         if ip != mypublic_ip_port.split(':')[0]:
             mypublic_ip_port = '{0}:{1}'.format(ip, port)
@@ -412,7 +416,7 @@ def grep_log_point2point(line):
         
         jline = json.loads(sp_line[1])
 
-        if jline.get('broadcast') != 0:
+        if jline.get('content').get('broadcast') != 0:
             slog.info('grep_point2point found broadcast')
             return False
 
@@ -721,6 +725,7 @@ if __name__ == "__main__":
         sys.exit()
 
     alarm_proxy_host = args.alarm
+    alarm_proxy_host = '127.0.0.1:19090'
     alarm_filename = args.file
     start_print = 'agent start... host:{0} file:{1}\n'.format(alarm_proxy_host, alarm_filename)
     slog.info(start_print)
