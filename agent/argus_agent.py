@@ -28,8 +28,12 @@ from agent.cpu import CpuWatch
 from agent.net import BandwidthWatch
 
 #xnetwork-14:02:05.899-T10719:[Keyfo]-(elect_netcard.cc: send:220): alarm elect_vhost_original_send local_node_id:ffffff5a10569d206a82b9f9555c2f53000000008f4a9aade07c40091694973c5b327842 chain_hash:1451210308 chain_msgid:655365 chain_msg_size:4983 send_timestamp:1591682525921 src_node_id: dest_node_id:0000000e0101ffffffffffffffffffff00000000edb57e31dc005ec08774db4439a479ef is_root:0 broadcast:0
+##xbase-10:09:25.683-T5202:[Keyfo]-(metrics_packet_impl:24): [metrics]{"category":"p2p","tag":"electvhost_send","type":"real_time","content":{"local_gid":"ffffff7e52b3e50d2c528bcd5b761dd400000000826d34de0faafaa764e60201860dd72a","chain_hash":3526676571,"chain_msgid":327685,"chain_msg_size":291,"send_timestamp":1611022165700,"src_node_id":"ff0000010000ffffffffffffffffffff00000000af122121017efab05d146f5d4d420104","dest_node_id":"ff0000010000ffffffffffffffffffff0000000030a376d2df4e0f92006023ea289ff3c9","is_root":0,"broadcast":0}}
 
 #xnetwork-14:02:13.098-T10733:[Keyfo]-(elect_netcard.cc: HandleRumorMessage:430): alarm elect_vhost_final_recv local_node_id:ffffff5a10569d206a82b9f9555c2f53000000008f4a9aade07c40091694973c5b327842 chain_hash:1873601393 chain_msgid:655368 packet_size:726 chain_msg_size:383 hop_num:1 recv_timestamp:1591682533100 src_node_id:ffffff4d615b7daa410cc881f72245a8000000003d0bb84307792054aed60988e7d5f411 dest_node_id:ffffff5a10569d206a82b9f9555c2f53000000008f4a9aade07c40091694973c5b327842 is_root:1 broadcast:0
+##xbase-10:09:50.720-T5279:[Keyfo]-(metrics_packet_impl:24): [metrics]{"category":"p2p","tag":"electvhost_recv","type":"real_time","content":{"local_gid":"ffffff7e52b3e50d2c528bcd5b761dd400000000826d34de0faafaa764e60201860dd72a","chain_hash":4286426616,"chain_msgid":131076,"packet_size":1106,"chain_msg_size":454,"hop_num":2,"recv_timestamp":1611022190737,"src_node_id":"ff0000010000ffffffffffffffffffff00000000f5270914c05fdff778f1f84d1e3233ba","dest_node_id":"ff0000010000ffffffffffffffffffff00000000f5270914c05fdff778f1f84d1e3233ba","is_root":0,"broadcast":1}}
+
+##xbase-10:12:03.191-T5669:[Keyfo]-(metrics_packet_impl:24): [metrics]{"category":"p2p","tag":"kad_info","type":"real_time","content":{"local_nodeid":"ff00000e0101ffffffffffffffffffff00000000451bf40a516748a5ebb0ee5870b34dcc","service_type":9223091665919541503,"xnetwork_id":255,"zone_id":14,"cluster_id":1,"group_id":1,"neighbours":13,"public_ip":"127.0.0.1","public_port":9301}}
 
 ALARMQ = queue.Queue(2000)
 ALARMQ_HIGH = queue.Queue(2000)
@@ -41,14 +45,15 @@ gconfig = {
             'start': 'true',
             'sample_rate': 200,    # 20%
             'alarm_type': 'packet',
-            'network_focus_on': ['000000010000','000000020000', '0000000f0101', '0000000e0101', '0000000001'], # src or dest: rec;zec;edg;arc;aud/val
+            # xnetwork_id:3Bytes zone_id:1Byte cluster_id:1Byte group_id:1Byte  = hex:12 size
+            'network_focus_on': ['ff0000010000','ff0000020000', 'ff00000f0101', 'ff00000e0101', 'ff00000001'], # src or dest: rec;zec;edg;arc;aud/val
             'network_ignore':   [],  # src or dest
             },
         'grep_point2point': {
             'start': 'false',
             'sample_rate': 5,    # 1%
             'alarm_type': 'packet',
-            'network_focus_on': ['000000010000','000000020000', '0000000f0101', '0000000e0101', '0000000001'], # src or dest: rec;zec;edg;arc;aud/val
+            'network_focus_on': ['ff0000010000','ff0000020000', 'ff00000f0101', 'ff00000e0101', 'ff00000001'], # src or dest: rec;zec;edg;arc;aud/val
             'network_ignore':   [],  # src or dest
             },
         'grep_networksize': {
@@ -175,35 +180,42 @@ def grep_log_broadcast(line):
     # something like: 
     'grep_broadcast': {
         'start': 'true',
-        'sample_rate': 1000,
-        'network_focus_on': ['0000000f0101', '000000010000', '000000020000', '0000000001'], # src or dest
-        'network_ignore':   ['0000000e0101'],  # src or dest
-        }
+        'sample_rate': 200,    # 20%
+        'alarm_type': 'packet',
+        # xnetwork_id:3Bytes zone_id:1Byte cluster_id:1Byte group_id:1Byte  = hex:12 size
+        'network_focus_on': ['ff0000010000','ff0000020000', 'ff00000f0101', 'ff00000e0101', 'ff00000001'], # src or dest: rec;zec;edg;arc;aud/val
+        'network_ignore':   [],  # src or dest
+        },
 
     # node_role.json
-    rec: 000000010000
-    zec: 000000020000
-    aud: 0000000001, 最后还有一个字节从 01 ~ 3f
-    val: 0000000001, 最后还有一个字节从 40 ~ 7e
-    arc: 0000000e0101
-    edg: 0000000f0101
+    rec: ff0000010000
+    zec: ff0000020000
+    aud: ff00000001, 最后还有一个字节从 01 ~ 3f
+    val: ff00000001, 最后还有一个字节从 40 ~ 7e
+    arc: ff00000e0101
+    edg: ff00000f0101
     '''
     try:
         if grep_broadcast.get('start') != 'true':
             return False
 
+        if line.find('metrics') == -1:
+            # not metircs
+            return False
+
         #slog.info('line: {0}'.format(line))
-        send_flag = False if (line.find('alarm elect_vhost_original_send') == -1) else True
-        recv_flag = False if (line.find('alarm elect_vhost_final_recv') == -1) else True
+        send_flag = False if (line.find('electvhost_send') == -1) else True
+        recv_flag = False if (line.find('electvhost_recv') == -1) else True
         if not send_flag and not recv_flag:
             return False
+
+        sp_line = line.split('[metrics]')
+        if len(sp_line) != 2:
+            return False
+
+        jline = json.loads(sp_line[1])
         
-        if send_flag:
-            if line.find('Debug') != -1 or line.find('Info') != -1:
-                if line.find('elect_command.cc') == -1 and line.find('elect_vhost.cc') == -1:
-                    slog.debug('maybe not the original send info,line:{0}'.format(line))
-                    return False
-        if line.find('broadcast:1') == -1:
+        if jline.get('broadcast') != 1:
             slog.info('grep_broadcast found point2point')
             return False
 
@@ -228,19 +240,9 @@ def grep_log_broadcast(line):
         if global_sample_rate < sample_rate:
             sample_rate = global_sample_rate
 
-        packet_info = {}
-        local_node_id_index  = line.find('local_node_id') 
-        line = line[local_node_id_index:]
-        sp_line = line.split()
-        for item in sp_line:
-            sp_item = item.split(':')
-            key = sp_item[0]
-            value = sp_item[1]
-            packet_info[key] = value
+        packet_info = jline.get('content')
 
         chain_hash = int(packet_info.get('chain_hash'))
-        #uniq_key = '{0}_{1}_{2}'.format(chain_hash, packet_info.get('src_node_id')[-10:], packet_info.get('dest_node_id')[-10:]) # TODO(smaug) for 01000 broadcast, dest_node_id maybe changed
-        #uniq_key = '{0}_{1}_{2}'.format(chain_hash, packet_info.get('src_node_id')[-10:], packet_info.get('chain_msgid'))
         uniq_key = '{0}_{1}_{2}'.format(chain_hash, packet_info.get('chain_msgid'), packet_info.get('chain_msg_size'))
         uniq_chain_hash = int(hashlib.sha256(uniq_key.encode('utf-8')).hexdigest(),16)  % ( 10 ** 19)
         slog.info('testtest uniq_key:{0} hash:{1}'.format(uniq_key, uniq_chain_hash))
@@ -274,51 +276,38 @@ def grep_log_networksize(line):
     # something like: 
     'grep_networksize': {
         'start': 'true',
-        'sample_rate': 1000,
+        'sample_rate': 50,  # 5%
         'alarm_type': 'networksize',
         }
-    '''
-
-    '''
-    xnetwork-14:02:08.955-T10729:[Keyfo]-(routing_table.cc: HeartbeatProc:668): <bluert 000000..e58888> [0000000f0101ffffffffffffffffffff000000007f4502de43edc43e704db5568de58888][9223091665936318464][0][15][1][1][255][31][3] has nodes_ size(nodes size):13,set_size:13,ip:127.0.0.1,port:9301,heart_size:13,all_ips:[127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9902,127.0.0.1:9302,127.0.0.1:9305,127.0.0.1:9304,127.0.0.1:9904,127.0.0.1:9303,127.0.0.1:9005,127.0.0.1:9000,127.0.0.1:9903,127.0.0.1:9002,127.0.0.1:9901,]
     '''
     try:
         if grep_networksize.get('start') != 'true':
             return False
+        
+        if line.find('metrics') == -1:
+            return False
 
         #slog.info('line: {0}'.format(line))
-        flag = (line.find('nodes_ size') != -1) and (line.find('set_size:') != -1)
-        if not flag:
+        if line.find('kad_info') == -1:
             return False
+
+        sp_line = line.split('[metrics]')
+        if len(sp_line) != 2:
+            return False
+        jline = json.loads(sp_line[1])
 
         sample_rate = grep_networksize.get('sample_rate')
 
-        #node_id_index = line.find('bluert') + 24
-        node_id_index = line.find('> [')
-        if node_id_index == -1:
-            return False
-        node_id_index += 3
-        node_id = line[node_id_index:node_id_index + 72]  # hex node_id size is 72
-
-        ip_index = line.find('ip:') + 3
-        ip_end_index = line.find(',port')
-        ip = line[ip_index:ip_end_index]   # 192.168.0.99
-        port_index = line.find('port:') + 5
-        port_end_index = line.find(',heart_size')
-        port = line[port_index:port_end_index]  # 9000
-        if int(port) <= 0:
-            return False
+       node_id = jline.get('content').get('local_nodeid')
+       ip = jline.get('content').get('public_ip')
+       port = jline.get('content').get('public_port')
 
         if ip != mypublic_ip_port.split(':')[0]:
             mypublic_ip_port = '{0}:{1}'.format(ip, port)
             slog.info('local update public_ip:{0}'.format(mypublic_ip_port))
-        if not my_root_id and node_id.startswith('010000'):
+        if not my_root_id and node_id.startswith('ffffff'):
             my_root_id = node_id
             slog.info('local update root_id:{0}'.format(my_root_id))
-
-        net_size_index = line.find('set_size:')
-        net_size_end_index = line.find(',ip')
-        net_size = line[net_size_index+9:net_size_end_index]
 
         now = int(time.time())
         tmp_remove = []
@@ -387,32 +376,43 @@ def grep_log_point2point(line):
     '''
     # something like: 
     'grep_point2point': {
-        'start': 'true',
-        'sample_rate': 1000,
-        'network_focus_on': ['0000000f0101', '000000010000', '000000020000', '0000000001'], # src or dest
-        'network_ignore':   ['0000000e0101'],  # src or dest
-        }
+        'start': 'false',
+        'sample_rate': 5,    # 1%
+        'alarm_type': 'packet',
+        'network_focus_on': ['ff0000010000','ff0000020000', 'ff00000f0101', 'ff00000e0101', 'ff00000001'], # src or dest: rec;zec;edg;arc;aud/val
+        'network_ignore':   [],  # src or dest
+        },
 
     # node_role.json
-    rec: 000000010000
-    zec: 000000020000
-    aud: 0000000001, 最后还有一个字节从 01 ~ 3f
-    val: 0000000001, 最后还有一个字节从 40 ~ 7e
-    arc: 0000000e0101
-    edg: 0000000f0101
+    rec: ff0000010000
+    zec: ff0000020000
+    aud: ff00000001, 最后还有一个字节从 01 ~ 3f
+    val: ff00000001, 最后还有一个字节从 40 ~ 7e
+    arc: ff00000e0101
+    edg: ff00000f0101
     '''
 
     try:
         if grep_point2point.get('start') != 'true':
             return False
+        
+        if line.find('metrics') == -1:
+            # not metrics
+            return False
 
         #slog.info('line: {0}'.format(line))
-        send_flag = False if (line.find('alarm elect_vhost_original_send') == -1) else True
-        recv_flag = False if (line.find('alarm elect_vhost_final_recv') == -1) else True
+        send_flag = False if (line.find('electvhost_send') == -1) else True
+        recv_flag = False if (line.find('electvhost_recv') == -1) else True
         if not send_flag and not recv_flag:
             return False
 
-        if line.find('broadcast:0') == -1:
+        sp_line = line.split('[metrics]')
+        if len(sp_line) != 2:
+            return False
+        
+        jline = json.loads(sp_line[1])
+
+        if jline.get('broadcast') != 0:
             slog.info('grep_point2point found broadcast')
             return False
 
@@ -437,16 +437,7 @@ def grep_log_point2point(line):
         if global_sample_rate < sample_rate:
             sample_rate = global_sample_rate
 
-        packet_info = {}
-        local_node_id_index  = line.find('local_node_id') 
-        line = line[local_node_id_index:]
-        sp_line = line.split()
-        for item in sp_line:
-            sp_item = item.split(':')
-            key = sp_item[0]
-            value = sp_item[1]
-            packet_info[key] = value
-
+        packet_info = jline.get('content')
 
         chain_hash = int(packet_info.get('chain_hash'))
         uniq_key = '{0}_{1}_{2}'.format(chain_hash, packet_info.get('src_node_id')[-10:], packet_info.get('dest_node_id')[-10:])
@@ -476,12 +467,12 @@ def check_progress(filename):
     global  gconfig, mark_down_flag, mypublic_ip_port, my_root_id
     if mark_down_flag:
         return False
-    cmd = 'ps -ef |grep xtopchain |grep -v grep'
+    cmd = 'ps -ef |grep topio |grep xnode |grep -v grep'
     #cmd = 'lsof {0} |grep xtopchain'.format(filename)
     result = os.popen(cmd).readlines()
     if result:
         return False
-    slog.warn('xtopchain down!! xtopchain down!! xtopchain down!! filename:{0}'.format(filename))
+    slog.warn('topio down!! topio down!! topio down!! filename:{0}'.format(filename))
 
     mark_down_flag = True
     alarm_payload = {
@@ -491,7 +482,7 @@ def check_progress(filename):
                 'node_id': my_root_id,
                 'node_id_status': 'dead',
                 'send_timestamp': int(time.time() * 1000),
-                'info': 'xtopchain down!'
+                'info': 'topio xnode down!'
                 },
             }
     put_alarmq_high(alarm_payload)
