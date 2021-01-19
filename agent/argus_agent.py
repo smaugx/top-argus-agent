@@ -86,7 +86,7 @@ def dict_cmp(a, b):
 
     for k in set(a) | set(b):
         if k not in a or k not in b:
-            slog.info('dict_cmp diff k:{0}'.format(k))
+            slog.debug('dict_cmp diff k:{0}'.format(k))
             return False
 
         if not dict_cmp(a[k], b[k]):
@@ -110,11 +110,11 @@ def update_config_from_remote():
                 slog.info("get remote config ok, response: {0}".format(res.text))
                 config = res.json().get('config')
     except Exception as e:
-        slog.info("exception: {0}".format(e))
+        slog.warn("exception: {0}".format(e))
         return False
 
     if not config:
-        slog.info("get remote config fail")
+        slog.warn("get remote config fail")
         return False
 
     if dict_cmp(config, gconfig):
@@ -133,7 +133,7 @@ def update_config():
         if not time_step:
             time_step = 5 * 60
         time.sleep(time_step)
-        slog.info('update remote config alive, update_step:{0} s'.format(time_step))
+        slog.debug('update remote config alive, update_step:{0} s'.format(time_step))
         update_config_from_remote()
 
     return
@@ -156,7 +156,7 @@ def put_alarmq(alarm_payload):
         ALARMQ.put(alarm_payload, block=True, timeout =2)
         slog.info("put send_queue:{0} size:{1}, item:{2}".format(ALARMQ, ALARMQ.qsize(),json.dumps(alarm_payload)))
     except Exception as e:
-        slog.info("queue full, drop alarm_payload")
+        slog.warn("queue full, drop alarm_payload")
         return False
     return True
 
@@ -167,7 +167,7 @@ def put_alarmq_high(alarm_payload):
         ALARMQ_HIGH.put(alarm_payload, block=True, timeout =2)
         slog.info("put alarm_queue_high:{0} size:{1} item:{2}".format(ALARMQ_HIGH, ALARMQ_HIGH.qsize(),json.dumps(alarm_payload)))
     except Exception as e:
-        slog.info("queue full, drop alarm_payload")
+        slog.warn("queue full, drop alarm_payload")
         return False
     return True
     
@@ -216,7 +216,7 @@ def grep_log_broadcast(line):
         jline = json.loads(sp_line[1])
         
         if jline.get('content').get('broadcast') != 1:
-            slog.info('grep_broadcast found point2point')
+            slog.debug('grep_broadcast found point2point')
             return False
 
         # do something filtering
@@ -228,12 +228,11 @@ def grep_log_broadcast(line):
         network_focus_on = grep_broadcast.get('network_focus_on')
         nf_ret = False
         for nf in network_focus_on:
-            slog.info('nf:{0}'.format(nf))
             if line.find(nf) != -1:
                 nf_ret = True
                 break
         if not nf_ret:
-            slog.info('grep_broadcast network_focus_on get nothing')
+            slog.warn('grep_broadcast network_focus_on get nothing')
             return False
 
         global_sample_rate = gconfig.get('global_sample_rate')
@@ -246,14 +245,13 @@ def grep_log_broadcast(line):
         chain_hash = int(packet_info.get('chain_hash'))
         uniq_key = '{0}_{1}_{2}'.format(chain_hash, packet_info.get('chain_msgid'), packet_info.get('chain_msg_size'))
         uniq_chain_hash = int(hashlib.sha256(uniq_key.encode('utf-8')).hexdigest(),16)  % ( 10 ** 19)
-        slog.info('testtest uniq_key:{0} hash:{1}'.format(uniq_key, uniq_chain_hash))
+        slog.debug('testtest uniq_key:{0} hash:{1}'.format(uniq_key, uniq_chain_hash))
         packet_info['uniq_chain_hash'] = uniq_chain_hash
         rn = uniq_chain_hash % 1000 + 1  # [1,1000]
         if rn > sample_rate:
             slog.info('grep_broadcast final sample_rate:{0} rn:{1} return'.format(sample_rate, rn))
             return False
         slog.info('grep_broadcast final sample_rate:{0} rn:{1} go-on'.format(sample_rate, rn))
-        slog.debug('found broadcast info,line:{0}'.format(line))
 
         packet_info['public_ip'] = mypublic_ip_port.split(':')[0] 
         #slog.info(packet_info)
@@ -264,7 +262,7 @@ def grep_log_broadcast(line):
 
         put_alarmq(alarm_payload)
     except Exception as e:
-        slog.info("grep_log exception: {0} line:{1}".format(e, line))
+        slog.warn("grep_log exception: {0} line:{1}".format(e, line))
         return False
     return True
 
@@ -367,7 +365,7 @@ def grep_log_networksize(line):
         slog.info('grep_networksize alarm_payload: {0}'.format(json.dumps(alarm_payload)))
         put_alarmq(alarm_payload)
     except Exception as e:
-        slog.info("grep_log_networksize exception: {0} line:{1}".format(e, line))
+        slog.warn("grep_log_networksize exception: {0} line:{1}".format(e, line))
         return False
     return True
 
@@ -417,14 +415,14 @@ def grep_log_point2point(line):
         jline = json.loads(sp_line[1])
 
         if jline.get('content').get('broadcast') != 0:
-            slog.info('grep_point2point found broadcast')
+            slog.debug('grep_point2point found broadcast')
             return False
 
         # do something filtering
         network_ignore = grep_point2point.get('network_ignore')
         for ni in network_ignore:
             if line.find(ni) != -1:
-                slog.info('grep_point2point network_ignore {0}'.format(ni))
+                slog.debug('grep_point2point network_ignore {0}'.format(ni))
                 return False
         network_focus_on = grep_point2point.get('network_focus_on')
         nf_ret = False
@@ -433,7 +431,7 @@ def grep_log_point2point(line):
                 nf_ret = True
                 break
         if not nf_ret:
-            slog.info('grep_point2point network_focus_on get nothing')
+            slog.warn('grep_point2point network_focus_on get nothing')
             return False
 
         global_sample_rate = gconfig.get('global_sample_rate')
@@ -463,7 +461,7 @@ def grep_log_point2point(line):
         put_alarmq(alarm_payload)
 
     except Exception as e:
-        slog.info("grep_log exception: {0} line:{1}".format(e, line))
+        slog.warn("grep_log exception: {0} line:{1}".format(e, line))
         return False
     return True
 
@@ -513,7 +511,7 @@ def watchlog(filename, offset = 0):
         #log_handle = open(filename, 'r',encoding="utf-8")
         log_handle = open(filename, 'r',encoding="latin-1")
     except Exception as e:
-        slog.info("open file exception: {0}".format(e))
+        slog.warn("open file exception: {0}".format(e))
         return offset
 
     wait_num = 0
@@ -525,7 +523,7 @@ def watchlog(filename, offset = 0):
         try:
             line = log_handle.readline()
         except Exception as e:
-            slog.info("readline exception:{0}, cur_pos:{1}".format(e, cur_pos))
+            slog.warn("readline exception:{0}, cur_pos:{1}".format(e, cur_pos))
             continue
         if not line:
             wait_num += 1
@@ -534,7 +532,7 @@ def watchlog(filename, offset = 0):
             slog.info("sleep 1 s, cur_pos: {0}".format(cur_pos))
             print_queue()
             if wait_num > 4:
-                slog.info("file: {0} done watch, size: {1}".format(filename, cur_pos))
+                slog.debug("file: {0} done watch, size: {1}".format(filename, cur_pos))
                 break
         else:
             send_size, recv_size = grep_log(line)
@@ -594,11 +592,11 @@ def do_alarm(alarm_list):
                 slog.info("send alarm ok, response: {0}".format(res.text))
                 return True
             else:
-                slog.info("send alarm fail, response: {0}".format(res.text))
+                slog.warn("send alarm fail, response: {0}".format(res.text))
         else:
-            slog.info('send alarm fail: {0}'.format(res.text))
+            slog.warn('send alarm fail: {0}'.format(res.text))
     except Exception as e:
-        slog.info("exception: {0}".format(e))
+        slog.warn("exception: {0}".format(e))
 
     return False
 
