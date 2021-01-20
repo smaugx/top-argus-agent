@@ -20,7 +20,6 @@ if __name__ == "__main__":
     parser.description='TOP-Argus Agent，拉取远程配置，报警采集并上报'
     parser.add_argument('-a', '--alarm', help='alarm proxy host, agent pull config and push alarm to this proxy host, eg: 127.0.0.1:9090', default='127.0.0.1:9090')
     parser.add_argument('-f', '--file', help="log file for agent to watch, eg: ./xtop.log", default='./xtop.log')
-    parser.add_argument('-d', '--daemon',dest='' help='start as daemon mode, eg: true/false')
     parser.add_argument('--nodaemon', action='store_true')
     args = parser.parse_args()
 
