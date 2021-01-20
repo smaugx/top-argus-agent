@@ -4,14 +4,15 @@
 import logging,os
 import common.config as sconfig
 
-base_path = './log'
-pid= os.getpid()
-pid = 'xx'
-path = os.path.join(base_path, 'topargus-{0}.log'.format(pid))
-if not os.path.exists(base_path):
-    os.mkdir(base_path)
+if not os.getenv('LOG_PATH'):
+    print("ENV LOG_PATH invalid")
+    sys.exit(2)
 
-slog = logging.getLogger(path)
+log_path = os.getenv('LOG_PATH') 
+if not os.path.exists(os.path.dirname(log_path)):
+    os.mkdir(os.path.dirname(log_path))
+
+slog = logging.getLogger(log_path)
 
 if sconfig.LOGLEVEL == 'debug':
     slog.setLevel(logging.DEBUG)
@@ -39,7 +40,7 @@ sh = logging.StreamHandler()
 sh.setFormatter(fmt)
 sh.setLevel(logging.WARNING)
 #设置文件日志
-fh = logging.FileHandler(path)
+fh = logging.FileHandler(log_path)
 fh.setFormatter(fmt)
 fh.setLevel(logging.DEBUG)
 slog.addHandler(sh)

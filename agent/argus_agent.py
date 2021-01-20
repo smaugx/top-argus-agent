@@ -2,17 +2,12 @@
 #! -*- coding:utf8 -*-
 
 import os
-now_dir = os.path.dirname(os.path.abspath(__file__))
-base_dir = os.path.dirname(now_dir)  #parent dir
-activate_this = '%s/vvlinux/bin/activate_this.py' % base_dir
-#exec(open(activate_this).read())
-
-import sys
-sys.path.insert(0, base_dir)
-
-
 import hashlib
-import queue
+try:
+   import queue
+except ImportError:
+   import Queue as queue
+
 import time
 import requests
 import copy
@@ -20,7 +15,6 @@ import json
 import threading
 import random
 import operator
-import argparse
 from urllib.parse import urljoin
 
 from common.slogging import slog
@@ -508,8 +502,8 @@ def grep_log(line):
 def watchlog(filename, offset = 0):
     try:
         #log_handle = open(filename, 'r',encoding="utf-8", errors='replace')
-        #log_handle = open(filename, 'r',encoding="utf-8")
-        log_handle = open(filename, 'r',encoding="latin-1")
+        log_handle = open(filename, 'r',encoding="utf-8")
+        #log_handle = open(filename, 'r',encoding="latin-1")
     except Exception as e:
         slog.warn("open file exception: {0}".format(e))
         return offset
@@ -599,6 +593,31 @@ def do_alarm(alarm_list):
         slog.warn("exception: {0}".format(e))
 
     return False
+
+def log_monitor():
+    slog.info("begin log_monitor")
+    log_path = os.getenv('LOG_PATH')
+    if not log_path:
+        slog.warn("env LOG_PATH invlaid")
+        return
+
+    # just wait
+    time.sleep(60 * 1)
+
+    if not os.path.exists(log_path):
+        slog.warn("{0} not exist".format(log_path))
+        return
+
+    log_max_size = 100 * 1024 * 1024 # 100MB
+    while True:
+        time.sleep(60)
+        size = os.path.getsize(log_path)
+        if size < log_max_size:
+            continue
+        open(log_path, 'w').close()
+        slog.info("clear log")
+
+    return
 
 def system_cron_job():
     global ALARMQ, ALARMQ_HIGH, gconfig, mypublic_ip_port
@@ -711,19 +730,12 @@ def consumer_alarm_high():
         except Exception as e:
             pass
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.description='TOP-Argus Agent，拉取远程配置，报警采集并上报'
-    parser.add_argument('-a', '--alarm', help='alarm proxy host, agent pull config and push alarm to this proxy host, eg: 127.0.0.1:9090', default='127.0.0.1:9090')
-    parser.add_argument('-f', '--file', help="log file for agent to watch, eg: ./xtop.log", default='./xtop.log')
-    args = parser.parse_args()
-
+def run(args):
     if args.alarm.find(':') == -1:
         slog.error('alarm proxy host invalid')
-        sys.exit()
+        return 1
 
     alarm_proxy_host = args.alarm
-    alarm_proxy_host = '127.0.0.1:19090'
     alarm_filename = args.file
     start_print = 'agent start... host:{0} file:{1}\n'.format(alarm_proxy_host, alarm_filename)
     slog.info(start_print)
@@ -759,7 +771,12 @@ if __name__ == "__main__":
     con_recv_th.start()
     slog.info("start consumer_alarm_high thread")
 
+    log_monitor_th = threading.Thread(target = log_monitor)
+    log_monitor_th.start()
+    slog.info("start log_monitor thread")
+
     slog.info('main thread wait...')
     watchlog_th.join()
     con_send_th.join()
     con_recv_th.join()
+    return 0
