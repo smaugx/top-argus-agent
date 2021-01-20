@@ -1,8 +1,6 @@
-cd /root/smaug/top-argus/
+cd /root/smaug/top-argus-agent/
 
-source ./vvlinux/bin/activate
-
-cd ./agent
+cd tools
 pwd
 
-nohup python argus_agent.py -a 127.0.0.1:9090 -f ./xtop.log > /dev/null & 2>&1
+python3 ../main.py -a 127.0.0.1:9090 -f /root/topnetwork/log/xtop.log
