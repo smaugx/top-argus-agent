@@ -18,6 +18,7 @@ import operator
 from urllib.parse import urljoin
 
 from common.slogging import slog
+import common.daemon  as daemon
 from agent.cpu import CpuWatch
 from agent.net import BandwidthWatch
 
@@ -746,6 +747,12 @@ def run(args):
     else:
         slog.error('using local config to start: {0}'.format(json.dumps(gconfig)))
 
+
+    if args.nodaemon:
+        slog.warn("start as no-daemon mode")
+    else:
+        slog.warn("start as daemon mode")
+        daemon.daemon_init()
 
     #run_watch(alarm_filename)
 
