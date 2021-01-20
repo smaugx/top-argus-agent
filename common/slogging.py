@@ -2,6 +2,7 @@
 #-*-coding:utf8 -*-
 
 import logging,os
+import time
 import threading
 import common.config as sconfig
 
@@ -74,10 +75,8 @@ def log_monitor():
 
 def start_log_monitor():
     log_monitor_th = threading.Thread(target = log_monitor)
+    log_monitor_th.daemon = True
     log_monitor_th.start()
-
-# start log monitor, cron clear log size
-start_log_monitor()
 
 if __name__ =='__main__':
     #slog = Logger('log/xx.log',logging.WARNING,logging.DEBUG)

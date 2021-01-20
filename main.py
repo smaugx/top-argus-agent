@@ -13,7 +13,7 @@ import os
 project_path = os.path.dirname(os.path.abspath(__file__))
 log_path = os.path.join(project_path, "log/topargus-agent.log")
 os.environ['LOG_PATH'] =  log_path 
-from common.slogging import slog
+import common.slogging as slogging
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -30,5 +30,6 @@ if __name__ == "__main__":
     setproctitle.setproctitle(proc_title)
 
     from agent import argus_agent
+    slogging.start_log_monitor()
     r = argus_agent.run(args)
     sys.exit(r)
