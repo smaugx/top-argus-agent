@@ -2,6 +2,7 @@
 #-*-coding:utf8 -*-
 
 import logging,os
+import threading
 import common.config as sconfig
 
 if not os.getenv('LOG_PATH'):
@@ -45,6 +46,38 @@ fh.setFormatter(fmt)
 fh.setLevel(logging.DEBUG)
 slog.addHandler(sh)
 slog.addHandler(fh)
+
+def log_monitor():
+    log_path = os.getenv('LOG_PATH')
+    if not log_path:
+        print("env LOG_PATH invlaid")
+        return
+
+    slog.info("log monitor begin")
+    # just wait
+    time.sleep(60 * 1)
+
+    if not os.path.exists(log_path):
+        print("{0} not exist".format(log_path))
+        return
+
+    log_max_size = 100 * 1024 * 1024 # 100MB
+    while True:
+        time.sleep(60)
+        size = os.path.getsize(log_path)
+        if size < log_max_size:
+            continue
+        open(log_path, 'w').close()
+
+    return
+
+
+def start_log_monitor():
+    log_monitor_th = threading.Thread(target = log_monitor)
+    log_monitor_th.start()
+
+# start log monitor, cron clear log size
+start_log_monitor()
 
 if __name__ =='__main__':
     #slog = Logger('log/xx.log',logging.WARNING,logging.DEBUG)

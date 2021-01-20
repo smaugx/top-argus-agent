@@ -596,31 +596,6 @@ def do_alarm(alarm_list):
 
     return False
 
-def log_monitor():
-    slog.info("begin log_monitor")
-    log_path = os.getenv('LOG_PATH')
-    if not log_path:
-        slog.warn("env LOG_PATH invlaid")
-        return
-
-    # just wait
-    time.sleep(60 * 1)
-
-    if not os.path.exists(log_path):
-        slog.warn("{0} not exist".format(log_path))
-        return
-
-    log_max_size = 100 * 1024 * 1024 # 100MB
-    while True:
-        time.sleep(60)
-        size = os.path.getsize(log_path)
-        if size < log_max_size:
-            continue
-        open(log_path, 'w').close()
-        slog.info("clear log")
-
-    return
-
 def system_cron_job():
     global ALARMQ, ALARMQ_HIGH, gconfig, mypublic_ip_port
     time_step = 2 * 60
@@ -782,10 +757,6 @@ def run(args):
     con_recv_th = threading.Thread(target = consumer_alarm_high)
     con_recv_th.start()
     slog.info("start consumer_alarm_high thread")
-
-    log_monitor_th = threading.Thread(target = log_monitor)
-    log_monitor_th.start()
-    slog.info("start log_monitor thread")
 
     slog.info('main thread wait...')
     watchlog_th.join()
