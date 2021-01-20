@@ -2,6 +2,7 @@
 #! -*- coding:utf8 -*-
 
 import os
+import sys
 import hashlib
 try:
    import queue
@@ -752,7 +753,11 @@ def run(args):
         slog.warn("start as no-daemon mode")
     else:
         slog.warn("start as daemon mode")
-        daemon.daemon_init()
+        try:
+            daemon.daemon_init()
+        except RuntimeError as e:
+            print(e, file=sys.stderr)
+            raise SystemExit(1)
 
     #run_watch(alarm_filename)
 

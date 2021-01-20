@@ -3,29 +3,31 @@
 import os,sys,time
 
 def daemon_init(stdin='/dev/null',stdout='/dev/null',stderr='/dev/null'):
-    sys.stdin = open(stdin,'r')
-    sys.stdout = open(stdout,'a+')
-    sys.stderr = open(stderr,'a+')
+    # First fork (detaches from parent)
     try:
-        pid = os.fork()
-        if pid > 0:        #parrent
-            os._exit(0)
-    except OSError,e:
-        sys.stderr.write("first fork failed!!"+e.strerror)
-        os._exit(1)
- 
-    os.setsid()
-    os.chdir("/")
-    os.umask(0)
- 
-    try:
-        pid = os.fork()     #第二次进行fork,为了防止会话首进程意外获得控制终端
-        if pid > 0:
-            os._exit(0)     #父进程退出
-    except OSError,e:
-        sys.stderr.write("second fork failed!!"+e.strerror)
-        os._exit(1)
- 
-    # 孙进程
-    sys.stdout.write("Daemon has been created! with pid: %d\n" % os.getpid())
+        if os.fork() > 0:
+            raise SystemExit(0)   # Parent exit
+    except OSError as e:
+        raise RuntimeError('fork #1 failed.')
 
+    os.chdir('/')
+    os.umask(0)
+    os.setsid()
+    # Second fork (relinquish session leadership)
+    try:
+        if os.fork() > 0:
+            raise SystemExit(0)
+    except OSError as e:
+        raise RuntimeError('fork #2 failed.')
+
+    # Flush I/O buffers
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    # Replace file descriptors for stdin, stdout, and stderr
+    with open(stdin, 'rb', 0) as f:
+        os.dup2(f.fileno(), sys.stdin.fileno())
+    with open(stdout, 'ab', 0) as f:
+        os.dup2(f.fileno(), sys.stdout.fileno())
+    with open(stderr, 'ab', 0) as f:
+        os.dup2(f.fileno(), sys.stderr.fileno())

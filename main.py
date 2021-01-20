@@ -19,12 +19,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.description='TOP-Argus Agent，拉取远程配置，报警采集并上报'
     parser.add_argument('-a', '--alarm', help='alarm proxy host, agent pull config and push alarm to this proxy host, eg: 127.0.0.1:9090', default='127.0.0.1:9090')
-    parser.add_argument('-f', '--file', help="log file for agent to watch, eg: ./xtop.log", default='./xtop.log')
+    parser.add_argument('-f', '--file', help="log file for agent to watch, eg: ./xtop.log", default='/chain/log/xtop.log')
     parser.add_argument('--nodaemon', action='store_true')
     args = parser.parse_args()
 
     # set process title
-    setproctitle.setproctitle('topargus-agent')
+    proc_title = 'topargus-agent: '
+    for i in range(len(sys.argv)):
+        proc_title = '{0} {1}'.format(proc_title, sys.argv[i])
+    setproctitle.setproctitle(proc_title)
 
     from agent import argus_agent
     r = argus_agent.run(args)
