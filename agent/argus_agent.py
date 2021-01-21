@@ -708,6 +708,7 @@ def consumer_alarm_high():
             pass
 
 def run(args):
+    global gconfig, alarm_proxy_host, mypublic_ip_port 
     if args.alarm.find(':') == -1:
         slog.error('alarm proxy host invalid')
         return 1
