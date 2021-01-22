@@ -66,9 +66,8 @@ def log_monitor():
     while True:
         time.sleep(60)
         size = os.path.getsize(log_path)
-        if size < log_max_size:
-            continue
-        open(log_path, 'w').close()
+        if size > log_max_size:
+            open(log_path, 'w').close()
 
     return
 

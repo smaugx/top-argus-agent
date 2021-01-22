@@ -738,29 +738,33 @@ def run(args):
     #run_watch(alarm_filename)
 
     update_config_th = threading.Thread(target = update_config)
+    update_config_th.daemon = True
     update_config_th.start()
     slog.info('start update config from remote thread')
 
     watchlog_th = threading.Thread(target = run_watch, args = (alarm_filename, ))
+    watchlog_th.daemon = True
     watchlog_th.start()
     slog.info("start watchlog thread")
 
     sys_cron_th = threading.Thread(target = system_cron_job)
+    sys_cron_th.daemon = True
     sys_cron_th.start()
     slog.info("start system_cron_job thread")
 
 
     con_send_th = threading.Thread(target = consumer_alarm)
+    con_send_th.daemon = True
     con_send_th.start()
     slog.info("start consumer_alarm thread")
 
 
     con_recv_th = threading.Thread(target = consumer_alarm_high)
+    con_recv_th.daemon = True
     con_recv_th.start()
     slog.info("start consumer_alarm_high thread")
 
-    slog.info('main thread wait...')
-    watchlog_th.join()
-    con_send_th.join()
-    con_recv_th.join()
+    while True:
+        time.sleep(1000)
+
     return 0
