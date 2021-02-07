@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 #! -*- coding:utf8 -*-
 
-import os
-now_dir = os.path.dirname(os.path.abspath(__file__))
-base_dir = os.path.dirname(now_dir)  #parent dir
-activate_this = '%s/vvlinux/bin/activate_this.py' % base_dir
-#exec(open(activate_this).read())
+import os, sys, hashlib
 
-import sys
-sys.path.insert(0, base_dir)
+try:
+   import queue
+except ImportError:
+   import Queue as queue
 
-
-import hashlib
-import queue
 import time
 import requests
 import copy
@@ -20,7 +15,6 @@ import json
 import threading
 import random
 import operator
-import argparse
 from urllib.parse import urljoin
 
 from common.slogging import slog
@@ -508,8 +502,8 @@ def grep_log(line):
 def watchlog(filename, offset = 0):
     try:
         #log_handle = open(filename, 'r',encoding="utf-8", errors='replace')
-        #log_handle = open(filename, 'r',encoding="utf-8")
-        log_handle = open(filename, 'r',encoding="latin-1")
+        log_handle = open(filename, 'r',encoding="utf-8")
+        #log_handle = open(filename, 'r',encoding="latin-1")
     except Exception as e:
         slog.warn("open file exception: {0}".format(e))
         return offset
@@ -559,7 +553,7 @@ def watchlog(filename, offset = 0):
     slog.info("new file: {0} created".format(filename))
     return 0
 
-def run_watch(filename = './xtop.log'):
+def run_watch_stream(filename = './xtop.log'):
     global ALARMQ,ALARMQ_HIGH 
     clear_queue()
     offset = 0
@@ -567,6 +561,22 @@ def run_watch(filename = './xtop.log'):
         time.sleep(1)
         offset = watchlog(filename, offset)
         slog.info("grep_log finish, alarmqueue.size = {0} alarmq_high.size = {1}, offset = {2}".format(ALARMQ.qsize(), ALARMQ_HIGH.qsize(), offset))
+
+def run_watch_playback(filename = './xtop.log'):
+    dir_path = os.path.dirname(filename) # /chain/log
+    #all entries in the directory w/ stats
+    data = (os.path.join(dir_path, fn) for fn in os.listdir(dir_path))
+    data = ((os.stat(path), path) for path in data)
+
+    # regular files, insert creation date
+    data = ((stat[ST_CTIME], path)
+               for stat, path in data if S_ISREG(stat[ST_MODE]))
+
+    log_list = []
+    for cdate, path in sorted(data):
+        #print(time.ctime(cdate), os.path.basename(path))
+        log_list.append(path)
+        # TODO(smaug)
 
 def do_alarm(alarm_list):
     global alarm_proxy_host
@@ -711,19 +721,13 @@ def consumer_alarm_high():
         except Exception as e:
             pass
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.description='TOP-Argus Agent，拉取远程配置，报警采集并上报'
-    parser.add_argument('-a', '--alarm', help='alarm proxy host, agent pull config and push alarm to this proxy host, eg: 127.0.0.1:9090', default='127.0.0.1:9090')
-    parser.add_argument('-f', '--file', help="log file for agent to watch, eg: ./xtop.log", default='./xtop.log')
-    args = parser.parse_args()
-
+def run(args):
+    global gconfig, alarm_proxy_host, mypublic_ip_port 
     if args.alarm.find(':') == -1:
         slog.error('alarm proxy host invalid')
-        sys.exit()
+        return 1
 
     alarm_proxy_host = args.alarm
-    alarm_proxy_host = '127.0.0.1:19090'
     alarm_filename = args.file
     start_print = 'agent start... host:{0} file:{1}\n'.format(alarm_proxy_host, alarm_filename)
     slog.info(start_print)
@@ -735,31 +739,34 @@ if __name__ == "__main__":
         slog.error('using local config to start: {0}'.format(json.dumps(gconfig)))
 
 
-    #run_watch(alarm_filename)
+    #run_watch_stream(alarm_filename)
 
     update_config_th = threading.Thread(target = update_config)
+    update_config_th.daemon = True
     update_config_th.start()
     slog.info('start update config from remote thread')
 
-    watchlog_th = threading.Thread(target = run_watch, args = (alarm_filename, ))
+    watchlog_th = threading.Thread(target = run_watch_stream, args = (alarm_filename, ))
+    watchlog_th.daemon = True
     watchlog_th.start()
     slog.info("start watchlog thread")
 
     sys_cron_th = threading.Thread(target = system_cron_job)
+    sys_cron_th.daemon = True
     sys_cron_th.start()
     slog.info("start system_cron_job thread")
 
 
     con_send_th = threading.Thread(target = consumer_alarm)
+    con_send_th.daemon = True
     con_send_th.start()
     slog.info("start consumer_alarm thread")
 
 
     con_recv_th = threading.Thread(target = consumer_alarm_high)
+    con_recv_th.daemon = True
     con_recv_th.start()
     slog.info("start consumer_alarm_high thread")
 
-    slog.info('main thread wait...')
-    watchlog_th.join()
-    con_send_th.join()
-    con_recv_th.join()
+
+    return 0

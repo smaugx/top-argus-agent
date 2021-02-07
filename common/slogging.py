@@ -1,17 +1,20 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 #-*-coding:utf8 -*-
 
-import logging,os
+import logging,os,sys
+import time
+import threading
 import common.config as sconfig
 
-base_path = './log'
-pid= os.getpid()
-pid = 'xx'
-path = os.path.join(base_path, 'topargus-{0}.log'.format(pid))
-if not os.path.exists(base_path):
-    os.mkdir(base_path)
+if not os.getenv('LOG_PATH'):
+    print("ENV LOG_PATH invalid")
+    sys.exit(2)
 
-slog = logging.getLogger(path)
+log_path = os.getenv('LOG_PATH') 
+if not os.path.exists(os.path.dirname(log_path)):
+    os.mkdir(os.path.dirname(log_path))
+
+slog = logging.getLogger(log_path)
 
 if sconfig.LOGLEVEL == 'debug':
     slog.setLevel(logging.DEBUG)
@@ -32,6 +35,7 @@ else:
 %(funcName)s        调用日志输出函数的函数名
 %(lineno)d          调用日志输出函数的语句所在的代码行
 '''
+
 fmt = logging.Formatter('[%(asctime)s][%(process)d][%(thread)d][%(levelname)s][%(filename)s][%(funcName)s][%(lineno)d]:%(message)s', '%Y-%m-%d %H:%M:%S')
 
 #设置CMD日志
@@ -39,11 +43,42 @@ sh = logging.StreamHandler()
 sh.setFormatter(fmt)
 sh.setLevel(logging.WARNING)
 #设置文件日志
-fh = logging.FileHandler(path)
+fh = logging.FileHandler(log_path)
 fh.setFormatter(fmt)
 fh.setLevel(logging.DEBUG)
 slog.addHandler(sh)
 slog.addHandler(fh)
+
+def log_monitor():
+    log_path = os.getenv('LOG_PATH')
+    if not log_path:
+        print("env LOG_PATH invlaid")
+        return
+
+    slog.info("log monitor begin")
+    # just wait
+    time.sleep(60 * 1)
+
+    if not os.path.exists(log_path):
+        print("{0} not exist".format(log_path))
+        return
+
+    log_max_size = 100 * 1024 * 1024 # 100MB
+    while True:
+        time.sleep(60)
+        try:
+            size = os.path.getsize(log_path)
+            if size > log_max_size:
+                open(log_path, 'w').close()
+        except Exception as e:
+            pass
+
+    return
+
+def start_log_monitor():
+    log_monitor_th = threading.Thread(target = log_monitor)
+    log_monitor_th.daemon = True
+    log_monitor_th.start()
 
 if __name__ =='__main__':
     #slog = Logger('log/xx.log',logging.WARNING,logging.DEBUG)

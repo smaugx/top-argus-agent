@@ -1,5 +1,11 @@
-certifi==2019.11.28
-chardet==3.0.4
-idna==2.8
-requests==2.22.0
-urllib3==1.25.7
+certifi==2020.12.5
+chardet==4.0.0
+idna==2.10
+requests==2.25.1
+setproctitle==1.2.1
+urllib3==1.26.2
+cachetools==4.2.1
+cssselect==1.1.0
+cssutils==1.0.2
+pycrypt==0.7.2
+pycrypto==2.6.1

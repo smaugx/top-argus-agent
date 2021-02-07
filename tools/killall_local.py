@@ -5,7 +5,7 @@
 import os
 
 def killall_logwatch():
-    cmd = 'ps -ef |grep argus_agent.py |grep -v grep'
+    cmd = 'ps -ef |grep topargus-agent |grep -v grep'
     result = os.popen(cmd).readlines()
     if not result:
         return
