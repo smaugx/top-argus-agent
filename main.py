@@ -34,16 +34,19 @@ if __name__ == "__main__":
         proc_title = '{0} {1}'.format(proc_title, sys.argv[i])
     setproctitle.setproctitle(proc_title)
 
-    slogging.start_log_monitor()
     if args.nodaemon:
-        slog.warn("start as no-daemon mode")
+        print("start as no-daemon mode")
     else:
-        slog.warn("start as daemon mode")
+        # forbidden using slog befor daemon_init
+        print("start as daemon mode")
         try:
             daemon.daemon_init()
         except RuntimeError as e:
             print(e, file=sys.stderr)
             raise SystemExit(1)
+
+    # attention: must behind daemon_init
+    slogging.start_log_monitor()
 
     from agent import argus_agent
     argus_agent.run(args)
