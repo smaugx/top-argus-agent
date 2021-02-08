@@ -6,4 +6,4 @@
 # log set
 # log level: debug/info/warn/error/critical
 
-LOGLEVEL = 'debug'
+LOGLEVEL = 'warn'
