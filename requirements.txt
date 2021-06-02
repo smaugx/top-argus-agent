@@ -3,7 +3,7 @@ chardet==4.0.0
 idna==2.10
 requests==2.25.1
 setproctitle==1.2.1
-urllib3==1.26.2
+urllib3==1.26.5
 cachetools==4.2.1
 cssselect==1.1.0
 cssutils==1.0.2
